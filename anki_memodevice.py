@@ -844,6 +844,88 @@ setTimeout(function(){
 with open("memo.json", "r", encoding="utf-8") as file_obj:
     memo_data = json.load(file_obj)
 
+
+def generate_character_html(entry, memo_data):
+    """Generate HTML content for a single character's answer section"""
+    char = entry["character"]
+    pinyin_data = entry["pinyin"]
+    pinyin_str = pinyin_data["pinyin"]
+    gloss = entry["gloss"]
+    gloss_fr = entry["gloss_fr"]
+    hint = entry["hint"]
+    subcomponents_fr = entry["subcomponents_fr"]
+
+    # Build decomposition HTML
+    decomp_html = ""
+    if "components" in entry and entry["components"]:
+        decomp_html += '<div class="acentersmall" style="text-align:left;"><strong>Decomposition:</strong><br>'
+        for component in entry["components"]:
+            component_gloss_str = f'{component["gloss_fr"]} [{component["gloss"]}]'
+            decomp_html += f'<div style="margin-top:2px;text-align:left;margin-left:5%;"><strong>━</strong> {component["character"]} ({component_gloss_str})'
+            if "hint" in component and component["hint"] and component["hint"] not in ["None", ""]:
+                decomp_html += f"[Hint: {component['hint']}]"
+            decomp_html += "<br></div>"
+
+        if not (len(subcomponents_fr) == 1 and component["character"] in list(subcomponents_fr)[0]):
+            subcomp_str = ""
+            for subcomponent in list(subcomponents_fr.items()):
+                sub_key, sub_value = subcomponent[0], subcomponent[1]
+                subcomp_str += f"{sub_key}({sub_value}); "
+            if subcomp_str:
+                decomp_html += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong>●</strong> {subcomp_str}<br></div>'
+
+    # Build hint HTML
+    hint_html = ""
+    if hint and hint != "":
+        hint_html += '<div class="acentersmall" style="text-align:left;"><strong>Hint:</strong><br>'
+        hint_html += f'<div style="margin-top:2px;text-align:left;margin-left:5%;"><strong>━</strong> {hint}<br></div>'
+        hint_html += '</div>'
+
+    # Build gloss HTML
+    gloss_html = ""
+    gloss_html += f'<div class="acentersmall" style="text-align:left;"><strong>Gloss:</strong></div>'
+    gloss_html += f'<div style="margin-top:2px;text-align:left;margin-left:5%;"><strong>━</strong> {gloss_fr} [{gloss}]</div>'
+
+    # Build character display
+    char_html = ""
+    char_html += f'<div style="font-size:45px;text-align:center;margin-top:25px;">{char}</div>'
+    char_html += f'<div class="acentersmall"><strong>P</strong>: {entry["position"]} / <strong>R</strong>: {entry["rank"]} / <strong>C</strong>: {float(entry["coverage"]):.2f}%</div><br>'
+
+    # Build detailed pinyin breakdown
+    pinyin_initial = pinyin_data["initial"]
+    pinyin_final = pinyin_data["final"]
+    pinyin_tone = pinyin_data["tone"]
+    u_is_v = pinyin_data["u_is_v"]
+
+    pinyin_detailed = '<div class="acentersmall" style="text-align:left;"><strong>Pinyin:</strong><br>'
+    pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:5%;"><strong>━</strong> {pinyin_str}<br></div>'
+
+    if pinyin_initial != "":
+        pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong>●</strong> <strong>[{pinyin_initial}]</strong> - {memo_data["initials"][pinyin_initial]}<br></div>'
+
+    if pinyin_final in memo_data["finals"]:
+        action_str = f"{memo_data['finals'][pinyin_final]['action']}({memo_data['finals'][pinyin_final]['image']})"
+        pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong>●</strong> <strong>[{pinyin_final}]</strong> - {action_str}<br></div>'
+    else:
+        pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong>●</strong> <strong>[{pinyin_final}]</strong> - {memo_data["initials"][pinyin_final]}<br></div>'
+
+    pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong>●</strong> <strong>[{memo_data["tones"][pinyin_tone]["symbol"]}]</strong> - {memo_data["tones"][pinyin_tone]["view"]}'
+    if u_is_v:
+        pinyin_detailed += f" - <strong>[{memo_data['tones']['6']['symbol']}]</strong>"
+    pinyin_detailed += "<br></div>"
+    pinyin_detailed += "</div>"
+
+    # Combine all HTML
+    answer_html = char_html
+    answer_html += pinyin_detailed
+    answer_html += gloss_html
+    answer_html += hint_html
+    answer_html += decomp_html
+    answer_html += "</div><br>"
+
+    return answer_html
+
+
 def build_cloze_note(radical_key, guid, radical_entrys, loci_key="", loci_name="", loci_range=None):
     """Build a single cloze note for all characters in a radical group"""
 
@@ -869,81 +951,7 @@ def build_cloze_note(radical_key, guid, radical_entrys, loci_key="", loci_name="
 
     for idx, entry in enumerate(radical_entrys, start=1):
         char = entry["character"]
-        pinyin_data = entry["pinyin"]
-        pinyin_str = pinyin_data["pinyin"]
-        gloss = entry["gloss"]
-        gloss_fr = entry["gloss_fr"]
-
-        hint = entry["hint"]
-
-        subcomponents = entry["subcomponents"]
-        subcomponents_fr = entry["subcomponents_fr"]
-
-        # Build decomposition HTML in gen_anki_device.py style
-        decomp_html = ""
-        if "components" in entry and entry["components"]:
-            decomp_html += '<div class="acentersmall" style="text-align:left;"><strong>Decomposition:</strong><br>'
-            for component in entry["components"]:
-                component_gloss_str = f'{component["gloss_fr"]} [{component["gloss"]}]'
-                decomp_html += f'<div style="margin-top:2px;text-align:left;margin-left:5%;"><strong>━</strong> {component["character"]} ({component_gloss_str})'
-                if "hint" in component and component["hint"] and component["hint"] not in ["None", ""]:
-                    decomp_html += f"[Hint: {component['hint']}]"
-                decomp_html += "<br></div>"
-
-            if not (len(subcomponents_fr) == 1 and component["character"] in list(subcomponents_fr)[0]):
-                subcomp_str = ""
-                for subcomponent in list(subcomponents_fr.items()):
-                    sub_key, sub_value = subcomponent[0], subcomponent[1]
-                    subcomp_str += f"{sub_key}({sub_value}); "
-                if subcomp_str:
-                    decomp_html += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong>●</strong> {subcomp_str}<br></div>'
-
-        hint_html = ""
-        if hint and hint != "":
-            hint_html += '<div class="acentersmall" style="text-align:left;"><strong>Hint:</strong><br>'
-            hint_html += f'<div style="margin-top:2px;text-align:left;margin-left:5%;"><strong>━</strong> {hint}<br></div>'
-            hint_html += '</div>'
-
-        gloss_html = ""
-        gloss_html += f'<div class="acentersmall" style="text-align:left;"><strong>Gloss:</strong></div>'
-        gloss_html += f'<div style="margin-top:2px;text-align:left;margin-left:5%;"><strong>━</strong> {gloss_fr} [{gloss}]</div>'
-
-        char_html = ""
-        char_html += f'<div style="font-size:45px;text-align:center;margin-top:25px;">{char}</div>'
-        char_html += f'<div class="acentersmall"><strong>P</strong>: {entry["position"]} / <strong>R</strong>: {entry["rank"]} / <strong>C</strong>: {float(entry["coverage"]):.2f}%</div><br>'
-
-        # Build detailed pinyin breakdown like gen_anki_device.py
-        pinyin_initial = pinyin_data["initial"]
-        pinyin_final = pinyin_data["final"]
-        pinyin_tone = pinyin_data["tone"]
-        u_is_v = pinyin_data["u_is_v"]
-
-        pinyin_detailed = '<div class="acentersmall" style="text-align:left;"><strong>Pinyin:</strong><br>'
-        pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:5%;"><strong>━</strong> {pinyin_str}<br></div>'
-
-        if pinyin_initial != "":
-            pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong>●</strong> <strong>[{pinyin_initial}]</strong> - {memo_data["initials"][pinyin_initial]}<br></div>'
-
-        if pinyin_final in memo_data["finals"]:
-            action_str = f"{memo_data['finals'][pinyin_final]['action']}({memo_data['finals'][pinyin_final]['image']})"
-            pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong>●</strong> <strong>[{pinyin_final}]</strong> - {action_str}<br></div>'
-        else:
-            pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong>●</strong> <strong>[{pinyin_final}]</strong> - {memo_data["initials"][pinyin_final]}<br></div>'
-
-        pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong>●</strong> <strong>[{memo_data["tones"][pinyin_tone]["symbol"]}]</strong> - {memo_data["tones"][pinyin_tone]["view"]}'
-        if u_is_v:
-            pinyin_detailed += f" - <strong>[{memo_data['tones']['6']['symbol']}]</strong>"
-        pinyin_detailed += "<br></div>"
-        pinyin_detailed += "</div>"
-
-        # Answer formatted like gen_anki_device.py
-        answer_html = char_html
-        answer_html += pinyin_detailed
-        answer_html += gloss_html
-        answer_html += hint_html
-        answer_html += decomp_html
-        answer_html += "</div><br>"
-
+        answer_html = generate_character_html(entry, memo_data)
         # Create cloze deletion - all use c1 to appear on same card; use position as hint
         cloze_text += f"{{{{c1::{answer_html}::{entry['position']}}}}} "
 
@@ -965,6 +973,46 @@ def build_cloze_note(radical_key, guid, radical_entrys, loci_key="", loci_name="
 
     # Create the note
     note = genanki.Note(model=model, fields=[title_text, cloze_text, note_text, loci_html], guid=guid)
+
+    return note
+
+
+def generate_guid(entry):
+    """Generate a unique GUID for an entry based on character and position"""
+    content = f"{entry['character']}-{entry['position']}-standard"
+    return int(hashlib.sha256(content.encode()).hexdigest(), 16) % (1 << 63)
+
+
+def build_standard_note(entry, memo_data):
+    """Build a standard (non-cloze) note for a single character"""
+    char = entry["character"]
+    answer_html = generate_character_html(entry, memo_data)
+
+    # Get image for the character
+    radical_key = entry.get('_radical_key', '')
+    img, loci_name = get_image_file(radical_key, loci_data, entry["position"], char)
+    # Determine loci key for display and include trailing number as #N if present
+    loci_key_std = get_loci_key(radical_key, entry["position"], char, loci_data)
+    m = re.search(r'(\d+)\s*$', loci_key_std)
+    if m:
+        loci_display_key = loci_key_std[:m.start()].rstrip() + f' #{int(m.group(1))}'
+    else:
+        loci_display_key = loci_key_std
+    locus_info = f"{loci_display_key}<br>{loci_name}"
+    loci_html = f'<div class="acentersmall" style="text-align:center">{locus_info}</div><br>'
+    loci_html += f'<div class="image" style="text-align:center;"><img src="{img.split("/")[-1]}"></div><br>'
+
+    # Format question with large character only
+    char_display = f'<div style="font-size:45px;text-align:center;margin-top:25px;">{char}</div>'
+    question_html = char_display
+
+    # Add image to bottom of answer
+    answer_html += loci_html
+
+    model = genanki.Model(20594999998, "Standard-Model-Device", fields=[{"name": "Character"}, {"name": "Answer"}], templates=[{"name": "Card 1", "qfmt": "<div id='card-body'>{{Character}}</div>", "afmt": "{{FrontSide}}<hr id=answer>{{Answer}}"}])
+
+    guid = generate_guid(entry)
+    note = genanki.Note(model=model, fields=[question_html, answer_html], guid=guid)
 
     return note
 
@@ -1029,9 +1077,12 @@ if __name__ == "__main__":
     # Reorganize entries by loci instead of radical
     loci_groups = {}
     deck_counter = 0
+    all_entries_list = []  # For standard deck
 
     for radical_key, radical_entrys in dict_entries.items():
         for entry in radical_entrys:
+            # Store radical_key in entry for later use in build_standard_note
+            entry['_radical_key'] = radical_key
             # Determine which loci this character belongs to
             loci_key = get_loci_key(radical_key, entry["position"], entry["character"], loci_data)
 
@@ -1039,8 +1090,9 @@ if __name__ == "__main__":
                 loci_groups[loci_key] = {"radical_key": radical_key, "entries": []}
 
             loci_groups[loci_key]["entries"].append(entry)
+            all_entries_list.append(entry)  # Collect for standard deck
 
-    # Create decks and notes grouped by loci
+    # Create cloze decks grouped by loci
     for m, (loci_key, loci_group) in enumerate(loci_groups.items()):
         radical_key = loci_group["radical_key"]
         loci_entrys = loci_group["entries"]
@@ -1064,6 +1116,21 @@ if __name__ == "__main__":
         # Create one cloze note for all characters in this loci group
         cloze_note = build_cloze_note(radical_key, guid_list[m], loci_entrys, loci_key, loci_name, loci_range)
         deck.add_note(cloze_note)
+
+    # Create standard deck with individual notes ordered by frequency (rank)
+    print("\nBuilding standard deck...")
+    standard_deck = genanki.Deck(20594999999, "Character List")
+
+    # Sort all entries by rank (frequency)
+    all_entries_list.sort(key=lambda x: int(x["rank"]))
+
+    # Add each character as a separate note
+    for idx, entry in enumerate(all_entries_list):
+        standard_note = build_standard_note(entry, memo_data)
+        standard_deck.add_note(standard_note)
+
+    decks.append(standard_deck)
+    print(f"Added {len(all_entries_list)} standard notes to deck")
 
     package = genanki.Package(decks)
     package.media_files = glob.glob("loci/*.png")

@@ -109,12 +109,6 @@ def process_hint(hint: str) -> str:
 with open("memo.json", "r", encoding="utf-8") as file_obj:
     memo_data = json.load(file_obj)
 
-# with open("gloss_translated-QwenMax.json", "r", encoding="utf-8") as file_obj:
-#     gloss_translation = json.load(file_obj)
-
-# with open("components_gloss_translated-QwenMax.json", "r", encoding="utf-8") as file_obj:
-#     components_gloss_translation = json.load(file_obj)
-
 with open("translation/gloss_translation-qwen-max.json", "r", encoding="utf-8") as file_obj:
     gloss_list = json.load(file_obj)
 with open("translation/norare-llm_defselection-qwen-max.json", "r", encoding="utf-8") as file_obj:
