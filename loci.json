@@ -1,0 +1,150 @@
+{
+    "扌1" : { "range" : [1 , 47], "name" : "IGA (VH)" },
+    "扌2" : { "range" : [48 , 66], "name" : "IGA (VH)" },
+    "扌3" : { "range" : [67 , 103], "name" : "IGA (VH)" },
+    "扌4" : { "range" : [104 , 135], "name" : "IGA (VH)" },
+    "扌5" : { "range" : [136 , 147], "name" : "IGA (VH)" },
+    "扌6" : { "range" : [148 , 154], "name" : "IGA (VH)" },
+
+    "氵1" : { "range" : [1 , 28], "name" : "Fu Tai (CDN)" },
+    "氵2" : { "range" : [29 , 52], "name" : "Fu Tai (CDN)" },
+    "氵3" : { "range" : [53 , 71], "name" : "Fu Tai (CDN)" },
+    "氵4" : { "range" : [72 , 97], "name" : "Fu Tai (CDN)" },
+    "氵5" : { "range" : [98 , 128], "name" : "Fu Tai (CDN)" },
+    "氵6" : { "range" : [129 , 153], "name" : "Fu Tai (CDN)" },
+
+    "亻1" : { "range" : [1 , 32], "name" : "WalMart (Plaza (CDN))" },
+    "亻2" : { "range" : [33 , 46], "name" : "WalMart (Plaza (CDN))" },
+    "亻3" : { "range" : [47 , 76], "name" : "WalMart (Plaza (CDN))" },
+    "亻4" : { "range" : [77 , 97], "name" : "WalMart (Plaza (CDN))" },
+    "亻5" : { "range" : [98 , 115], "name" : "WalMart (Plaza (CDN))" },
+    "亻6" : { "range" : [116 , 128], "name" : "WalMart (Plaza (CDN))" },
+
+    "口1" : { "range" : [1 , 22], "name" : "Maxi (CDN)" },
+    "口2" : { "range" : [23 , 43], "name" : "Maxi (CDN)" },
+    "口3" : { "range" : [44 , 56], "name" : "Maxi (CDN)" },
+    "口4" : { "range" : [57 , 74], "name" : "Maxi (CDN)" },
+    "口5" : { "range" : [75 , 92], "name" : "Maxi (CDN)" },
+    "口6" : { "range" : [93 , 115], "name" : "Maxi (CDN)" },
+    "口7" : { "range" : [116 , 122], "name" : "Maxi (CDN)" },
+
+    "艹1" : { "range" : [1 , 21], "name" : "Canadian Tire (Plaza (CDN))" },
+    "艹2" : { "range" : [22 , 36], "name" : "Canadian Tire (Plaza (CDN))" },
+    "艹3" : { "range" : [37 , 58], "name" : "Canadian Tire (Plaza (CDN))" },
+    "艹4" : { "range" : [59 , 68], "name" : "Canadian Tire (Plaza (CDN))" },
+    "艹5" : { "range" : [69 , 87], "name" : "Canadian Tire (Plaza (CDN))" },
+    "艹6" : { "range" : [88 , 107], "name" : "Canadian Tire (Plaza (CDN))" },
+
+    "木1" : { "range" : [1 , 29], "name" : "Metro (CDN)" },
+    "木2" : { "range" : [30 , 58], "name" : "Metro (CDN)" },
+    "木3" : { "range" : [59 , 67], "name" : "Metro (CDN)" },
+    "木4" : { "range" : [68 , 78], "name" : "Metro (CDN)" },
+    "木5" : { "range" : [79 , 100], "name" : "Metro (CDN)" },
+
+    "讠1" : { "range" : [1 , 23], "name" : "KimPhat (CDN)" },
+    "讠2" : { "range" : [24 , 37], "name" : "KimPhat (CDN)" },
+    "讠3" : { "range" : [38 , 57], "name" : "KimPhat (CDN)" },
+    "讠4" : { "range" : [58 , 70], "name" : "KimPhat (CDN)" },
+
+    "辶" : { "range" : [1 , 64], "name" : "Destination Dolar (IGA (VH))" },
+
+    "纟" : { "range" : [1 , 64], "name" : "Pharmaprix (IGA (VH))" },
+    "月" : { "range" : [1 , 58], "name" : "DucThanh (Victoria)" },
+
+    "宀1" : { "range" : [1 , 35], "name" : "Home Depo (CDN)" },
+    "宀2" : { "range" : [ 36, 57], "name" : "Home Depo (CDN)" },
+
+    "土1" : { "range" : [1 , 23], "name" : "Pharmaprix (station (CDN))" },
+    "土2" : { "range" : [24 , 55], "name" : "Pharmaprix (station (CDN))" },
+
+    "一1" : { "range" : [1 , 24], "name" : "Dolorama (CDN)" },
+    "一2" : { "range" : [25 , 49], "name" : "Dolorama (CDN)" },
+    "一3" : { "range" : [50 , 54], "name" : "Dolorama (CDN)" },
+
+    "忄" : { "range" : [1 , 52], "name" : "Marché JeanBrillan (CDN)" },
+    "女" : { "range" : [1 , 50], "name" : "EXO fruit (CDN)" },
+    "日" : { "range" : [1 , 44], "name" : "Marché Oriental (Victoria)" },
+    "钅" : { "range" : [1 , 39], "name" : "Marché Bismalha (Victoria)" },
+    "人" : { "range" : [1 , 38], "name" : "EURO Victoria (VH)" },
+    "禾" : { "range" : [1 , 36], "name" : "Plengke (VH)" },
+    "亠" : { "range" : [1 , 36], "name" : "Lavadora (VH)" },
+    "阝" : { "range" : [1 , 36], "name" : "Marché KimPo (Victoria)" },
+    "王" : { "range" : [1 , 31], "name" : "Exotic Alimentation" },
+    "十" : { "range" : [1 , 31], "name" : "Jean-Coutu (station (CDN))" },
+    "尸" : { "range" : [1 , 31], "name" : "Allo Mon Coco (CDN)" },
+
+    "石1" : { "range" : [1 , 15], "name" : "Burreau en gros (JT)" },
+    "石2" : { "range" : [16 , 29], "name" : "Burreau en gros (JT)" },
+
+    "广1" : { "range" : [1 , 23], "name" : "McDo (CDN)" },
+    "广2" : { "range" : [24 , 28], "name" : "McDo (CDN)" },
+
+    "⺮" : { "range" : [1 , 27], "name" : "Harvey (CDN)" },
+    "火" : { "range" : [1 , 27], "name" : "SecondCup (VH)" },
+    "丷" : { "range" : [1 , 24], "name" : "Dolorama (Plaza (CDN))" },
+    "厂" : { "range" : [1 , 23], "name" : "PFK (Victoria)" },
+    "冫" : { "range" : [1 , 22], "name" : "Poulet Magique (Victoria)" },
+    "山" : { "range" : [1 , 22], "name" : "UHaul (JT)" },
+    "犭" : { "range" : [1 , 22], "name" : "Pharmaprix (CDN)" },
+    "目" : { "range" : [1 , 21], "name" : "JeanCoutu (CDN)" },
+    "⻊" : { "range" : [1 , 21], "name" : "Dentiste (station (CDN))" },
+    "贝" : { "range" : [1 , 20], "name" : "Poisson Ryan (CDN)" },
+    "车" : { "range" : [1 , 20], "name" : "McDo (station (CDN))" },
+    "彳" : { "range" : [1 , 19], "name" : "Rotisserie Benny (CDN)" },
+    "丨" : { "range" : [1 , 19], "name" : "Kington Ramen (CDN)" },
+    "二" : { "range" : [1 , 18], "name" : "McCarol (CDN)" },
+    "大" : { "range" : [1 , 17], "name" : "Photo Passeport (Victoria)" },
+    "立" : { "range" : [1 , 17], "name" : "Bulk Barn (Namur)" },
+    "◎" : { "range" : [1 , 17], "name" : "Suchi Shop (CDN)" },
+    "穴" : { "range" : [1 , 17], "name" : "BubbleTea (station (CDN))" },
+    "马" : { "range" : [1 , 17], "name" : "DominosPizza (VH)" },
+    "疒" : { "range" : [1 , 17], "name" : "Poulet Rouge (CDN)" },
+    "⺌" : { "range" : [1 , 16], "name" : "ShawarmaMood (CDN)" },
+    "门" : { "range" : [1 , 16], "name" : "Subway (Namur)" },
+    "米" : { "range" : [1 , 16], "name" : "Phi Nguyen (CDN)" },
+    "㇒" : { "range" : [1 , 15], "name" : "Tim Horton (IGA (VH))" },
+    "雨" : { "range" : [1 , 15], "name" : "Subway (Victoria)" },
+    "虫" : { "range" : [1 , 15], "name" : "Buandrie (Victoria)" },
+    "𠂇" : { "range" : [1 ,14 ], "name" : "Harveys (Namur)" },
+    "囗" : { "range" : [1 , 14], "name" : "Resto Didar (Victoria)" },
+    "丿" : { "range" : [1 , 14], "name" : "Resto Kam Shing (VH)" },
+    "田" : { "range" : [1 , 14], "name" : "Subway (CDN)" },
+    "礻" : { "range" : [1 , 14], "name" : "Bismila Kabab (Victoria)" },
+    "耳" : { "range" : [1 , 14], "name" : "DakHing (VH)" },
+    "衤" : { "range" : [1 , 13], "name" : "Cremerie CA LEM (JT)" },
+    "巾" : { "range" : [1 , 13], "name" : "Lamp Fall (Victoria)" },
+    "⺊" : { "range" : [1 , 12], "name" : "TNT Palace (Victoria)" },
+    "又" : { "range" : [1 , 12], "name" : "Boulangerie Habib (Victoria)" },
+    "⺈" : { "range" : [1 , 12], "name" : "Orange Julep (Namur)" },
+    "勹" : { "range" : [1 , 12], "name" : "Amir (Decarie)" },
+    "饣" : { "range" : [1 , 12], "name" : "Dunn's (Decarie)" },
+
+    "羊走士弓1" : { "range" : [1 , 22], "name" : "Canac (Candiac)" },
+    "羊走士弓2" : { "range" : [23 , 44], "name" : "Canac (Candiac)" },
+
+    "止匚舟" : { "range" : [1 , 30], "name" : "La Belle Province (St-Constant)" },
+    "冂八工歹酉" : { "range" : [1 , 45], "name" : "C&T (Brosard)" },
+
+    "甘丬牛爫罒鱼虍1" : { "range" : [1 , 25], "name" : "T&T (Brosard)" },
+    "甘丬牛爫罒鱼虍2" : { "range" : [26 , 56], "name" : "T&T (Brosard)" },
+
+    "力厶㇆方小矢林户衣" : { "range" : [1 , 63], "name" : "Canadian Tire (St-Constant)" },
+
+    "覀子干行耂冖身夂匸舌龴刀斤1" : { "range" : [1 , 35], "name" : "Maxi (St-Constant)" },
+    "覀子干行耂冖身夂匸舌龴刀斤2" : { "range" : [36 , 78], "name" : "Maxi (St-Constant)" },
+
+    "白乚⺍戈龶几父釆" : { "range" : [1 , 40], "name" : "Phamiliprix (St-Constant)" },
+
+    "⺁音夕文㇎比乂气非黑革⺕龙匕彐玨牙麻吅羽1" : { "range" : [1 , 35], "name" : "Pasquier (Delson)" },
+    "⺁音夕文㇎比乂气非黑革⺕龙匕彐玨牙麻吅羽2" : { "range" : [36 , 80], "name" : "Pasquier (Delson)" },
+
+    "手至而自㇗里从巳曰己⺧角廴北川隹片卯缶骨鬼尢臼辡辰1" : { "range" : [1 , 37], "name" : "Walmart (Namur)" },
+    "手至而自㇗里从巳曰己⺧角廴北川隹片卯缶骨鬼尢臼辡辰2" : { "range" : [38 , 75], "name" : "Walmart (Namur)" },
+
+    "用龵心高儿支㗊青毛㇖皮哥癶艮朋谷齐臣串凵幺爪矛辛氏齿册叒廿豸玄耒鹿巛" : { "range" : [1 , 68], "name" : "Marché Newon (Namur)" },
+
+    "㇇出生戶多面无长已见西回老水入金弋色品飞风言兵示彡首众足母斗双网血食州香圭玉肉森弱㚘鼓页麦兟瓦鬲鸟炎鼻赫疋歺⺺竹昌赤韦鼠吕晶豆隶瓜乙⺪寸欠卜卵⺳鼎龟厽镸犬戋凸凹棘毋1": { "range" : [1 , 38], "name" : "Cosco (Candiac)" },
+    "㇇出生戶多面无长已见西回老水入金弋色品飞风言兵示彡首众足母斗双网血食州香圭玉肉森弱㚘鼓页麦兟瓦鬲鸟炎鼻赫疋歺⺺竹昌赤韦鼠吕晶豆隶瓜乙⺪寸欠卜卵⺳鼎龟厽镸犬戋凸凹棘毋2": { "range" : [39 , 70], "name" : "Cosco (Candiac)" },
+    "㇇出生戶多面无长已见西回老水入金弋色品飞风言兵示彡首众足母斗双网血食州香圭玉肉森弱㚘鼓页麦兟瓦鬲鸟炎鼻赫疋歺⺺竹昌赤韦鼠吕晶豆隶瓜乙⺪寸欠卜卵⺳鼎龟厽镸犬戋凸凹棘毋3": { "range" : [71 , 82], "name" : "Cosco (Candiac)" }
+
+}

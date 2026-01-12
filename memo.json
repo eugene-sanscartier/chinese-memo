@@ -1,0 +1,188 @@
+{
+  "finals": {
+    "u": {
+      "image": "feux",
+      "action": "brûler"
+    },
+    "eng": {
+      "image": "nouriture",
+      "action": "engloutir"
+    },
+    "in": {
+      "image": "lingot",
+      "action": "allumer"
+    },
+    "ie": {
+      "image": "épingle",
+      "action": "pique"
+    },
+    "ao": {
+      "image": "assaut",
+      "action": "charger/foncer"
+    },
+    "uang": {
+      "image": "",
+      "action": "attacher"
+    },
+    "ou": {
+      "image": "",
+      "action": "pousser"
+    },
+    "ei": {
+      "image": "réine",
+      "action": "couronner"
+    },
+    "en": {
+      "image": "",
+      "action": "emprisonner"
+    },
+    "a": {
+      "image": "bagarre",
+      "action": "cracher"
+    },
+    "an": {
+      "image": "piano",
+      "action": "jouer du piano"
+    },
+    "iu": {
+      "image": "chiure",
+      "action": "chier"
+    },
+    "e": {
+      "image": "explosion",
+      "action": "exploser"
+    },
+    "ia": {
+      "image": "phobia",
+      "action": "hurler"
+    },
+    "ing": {
+      "image": "lifting",
+      "action": "soulever"
+    },
+    "ang": {
+      "image": "sang",
+      "action": "saigner"
+    },
+    "iang": {
+      "image": "hagning",
+      "action": "pendre"
+    },
+    "ui": {
+      "image": "ennui",
+      "action": "dormir"
+    },
+    "iao": {
+      "image": "chat",
+      "action": "miauler"
+    },
+    "i": {
+      "image": "nid",
+      "action": "pondre"
+    },
+    "uar": {
+      "image": "jaguar",
+      "action": "courir"
+    },
+    "iong": {
+      "image": "jongler",
+      "action": "jongler"
+    },
+    "o": {
+      "image": "eau",
+      "action": "arroser"
+    },
+    "er": {
+      "image": "ver",
+      "action": "ramper"
+    },
+    "ai": {
+      "image": "chaise",
+      "action": "s'asseoir"
+    },
+    "ong": {
+      "image": "ping-pong",
+      "action": "jouer au ping-pong"
+    },
+    "un": {
+      "image": "parfum",
+      "action": "sentir"
+    },
+    "ue": {
+      "image": "queue",
+      "action": "remuer la queue"
+    },
+    "uai": {
+      "image": "waiving",
+      "action": "saluer(avec les mains)"
+    },
+    "uan": {
+      "image": "Don Juan",
+      "action": "embrasser"
+    },
+    "ian": {
+      "image": "magician",
+      "action": "tour de magie"
+    },
+    "ua": {
+      "image": "squash",
+      "action": "écraser"
+    },
+    "uo": {
+      "image": "liqueur",
+      "action": "saouler"
+    }
+
+  },
+  "initials": {
+    "b": "baleine",
+    "c": "cobra",
+    "ch": "chameau",
+    "d": "daim",
+    "f": "faucon",
+    "g": "girafe",
+    "h": "hydre",
+    "j": "jaguar",
+    "k": "kangourou",
+    "l": "lapin",
+    "m": "mouton",
+    "n": "narval",
+    "p": "panthère",
+    "q": "quokka",
+    "r": "renard",
+    "s": "singe",
+    "sh": "shepherd(chien)",
+    "t": "tortue",
+    "w": "wombat",
+    "x": "pandas",
+    "y": "yack",
+    "z": "zèbre",
+    "zh": "dragon"
+  },
+  "tones": {
+    "1": {
+      "symbol": "⟨ˉ⟩",
+      "view": "vers l'horizontale"
+    },
+    "2": {
+      "symbol": "⟨ˊ⟩",
+      "view": "vers le haut"
+    },
+    "3": {
+      "symbol": "⟨ˇ⟩",
+      "view": "de haut en bas en haut"
+    },
+    "4": {
+      "symbol": "⟨ˋ⟩",
+      "view": "vers le bas"
+    },
+    "5": {
+      "symbol": "⟨ ⟩",
+      "view": "droit"
+    },
+    "6": {
+      "symbol": "⟨¨⟩",
+      "view": "ü"
+    }
+  }
+}
