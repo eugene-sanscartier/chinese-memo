@@ -194,6 +194,11 @@ if __name__ == "__main__":
                 # def_list[character["character"]] = {}
                 # def_list[character["character"]]["def_en"] = character.get("meaning", "")
                 # def_list[character["character"]]["def_fr"] = ""
+
+                # radical = decomposer.decompose(character, 2)["components"][0]
+                # gloss_list[radical] = {}
+                # gloss_list[radical]["gloss_en"] = entries_dict.get(radical, {}).get("gloss", "")
+                # gloss_list[radical]["gloss_fr"] = ""
                 # TODO comment
 
         except:
