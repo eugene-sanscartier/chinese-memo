@@ -889,7 +889,7 @@ def generate_character_html(entry, memo_data):
     # Build character display
     char_html = ""
     char_html += f'<div style="font-size:45px;text-align:center;margin-top:25px;">{char}</div>'
-    char_html += f'<div class="acentersmall"><strong>P</strong>: {entry["position"]} / <strong>R</strong>: {entry["rank"]} / <strong>C</strong>: {float(entry["coverage"]):.2f}%</div><br>'
+    char_html += f'<div class="acentersmall" style="text-align:center;"><strong>P</strong>: {entry["position"]} / <strong>R</strong>: {entry["rank"]} / <strong>C</strong>: {float(entry["coverage"]):.2f}%</div><br>'
 
     # Build detailed pinyin breakdown
     pinyin_initial = pinyin_data["initial"]
@@ -983,7 +983,7 @@ def generate_guid(entry):
     return int(hashlib.sha256(content.encode()).hexdigest(), 16) % (1 << 63)
 
 
-def build_standard_note(entry, memo_data):
+def build_standard_note(entry, memo_data, next_entry=None):
     """Build a standard (non-cloze) note for a single character"""
     char = entry["character"]
     answer_html = generate_character_html(entry, memo_data)
@@ -1002,6 +1002,17 @@ def build_standard_note(entry, memo_data):
     loci_html = f'<div class="acentersmall" style="text-align:center">{locus_info}</div><br>'
     loci_html += f'<div class="image" style="text-align:center;"><img src="{img.split("/")[-1]}"></div><br>'
 
+    # Add next entry preview if available (as collapsible spoiler)
+    if next_entry:
+        next_char = next_entry["character"]
+        next_html = '<hr style="margin: 15px 0;">'
+        next_html += '<div class="spoiler" style="padding:0px; margin:0 0; text-align:center;">'
+        next_html += f'<div class="spoiler-hint" onclick="this.style.display=\'none\'; this.nextElementSibling.style.display=\'block\';" style="cursor:pointer; color:#4285f4; font-size:22px; padding:5px;">▼ {next_char} ▼</div>'
+        next_html += '<div class="spoiler-content" style="display:none;">'
+        next_html += generate_character_html(next_entry, memo_data)
+        next_html += '</div></div><br>'
+        answer_html += next_html
+
     # Format question with large character only
     char_display = f'<div style="font-size:45px;text-align:center;margin-top:25px;">{char}</div>'
     question_html = char_display
@@ -1009,7 +1020,17 @@ def build_standard_note(entry, memo_data):
     # Add image to bottom of answer
     answer_html += loci_html
 
-    model = genanki.Model(20594999998, "Standard-Model-Device", fields=[{"name": "Character"}, {"name": "Answer"}], templates=[{"name": "Card 1", "qfmt": "<div id='card-body'>{{Character}}</div>", "afmt": "{{FrontSide}}<hr id=answer>{{Answer}}"}])
+    model = genanki.Model(20594999998, "Standard-Model-Device", fields=[{
+        "name": "Character"
+    }, {
+        "name": "Answer"
+    }], templates=[
+        {
+            "name": "Card 1",
+            "qfmt": "<div id='card-body'>{{Character}}</div>",
+            "afmt": "{{FrontSide}}<hr id=answer>{{Answer}}"
+        },
+    ])
 
     guid = generate_guid(entry)
     note = genanki.Note(model=model, fields=[question_html, answer_html], guid=guid)
@@ -1057,6 +1078,36 @@ def get_image_file(key: str, loci_data: dict, k: int, char: str):
                 break
 
     return img_file, loci_name
+
+
+def excelmemo_sets():
+    dictionary_char = []
+    with open("dictionary_char.jsonl", "r", encoding="utf-8") as file_obj:
+        for json_line in file_obj:
+            entry = json.loads(json_line)
+            dictionary_char += [entry]
+    dictionary_char = {entry["char"]: entry for entry in dictionary_char if "char" in entry}
+
+    with open("translation/gloss_translation-qwen-max.json", "r", encoding="utf-8") as file_obj:
+        gloss_list = json.load(file_obj)
+
+    with pandas.ExcelWriter(f"memo_sets.xlsx") as writer:
+        df = pandas.DataFrame(counter_list)
+        df.to_excel(writer, sheet_name="Loci Sets", index=False)
+        writer.sheets["Loci Sets"].autofit()
+
+        loci_path = []
+        for loci in counter_list:
+            if loci['loci'] not in [entry['loci'] for entry in loci_path]: loci_path += [loci]
+
+        for i, loci in enumerate(loci_path):
+            del loci['length']
+            loci['set'] = i + 1
+            loci['meaning'] = gloss_list.get(loci['loci'], '').get('gloss_fr', '')
+
+        df = pandas.DataFrame(loci_path)
+        df.to_excel(writer, sheet_name="Loci Path", index=False)
+        writer.sheets["Loci Path"].autofit()
 
 
 with open("data_memodevice.json", "r", encoding="utf-8") as file_obj:
@@ -1117,27 +1168,42 @@ if __name__ == "__main__":
         cloze_note = build_cloze_note(radical_key, guid_list[m], loci_entrys, loci_key, loci_name, loci_range)
         deck.add_note(cloze_note)
 
-    # Create standard deck with individual notes ordered by frequency (rank)
+    # Create standard deck with individual notes ordered by loci
     print("\nBuilding standard deck...")
     standard_deck = genanki.Deck(20594999999, "Character List")
 
-    # Sort all entries by rank (frequency)
-    all_entries_list.sort(key=lambda x: int(x["rank"]))
+    # Add each character as a separate note, grouped by loci with next entry reference
+    guid_list_verify = []
+    for loci_key, loci_group in loci_groups.items():
+        loci_entrys = loci_group["entries"]
+        # Sort entries within each loci by position
+        loci_entrys.sort(key=lambda x: int(x["position"]))
 
-    # Add each character as a separate note
-    for idx, entry in enumerate(all_entries_list):
-        standard_note = build_standard_note(entry, memo_data)
-        standard_deck.add_note(standard_note)
+        for idx, entry in enumerate(loci_entrys):
+            # Get next entry in the same loci, or None if this is the last one
+            next_entry = loci_entrys[idx + 1] if idx + 1 < len(loci_entrys) else None
+            standard_note = build_standard_note(entry, memo_data, next_entry)
+            standard_deck.add_note(standard_note)
+            guid_list_verify += [standard_note.guid]
 
     decks.append(standard_deck)
-    print(f"Added {len(all_entries_list)} standard notes to deck")
+    print(f"Added {len(guid_list_verify)} standard notes to deck")
+
+    # Verify GUID uniqueness
+    guid_set = set(guid_list_verify)
+    print(f"\nGUID Verification:")
+    print(f"  Total notes: {len(guid_list_verify)}")
+    print(f"  Unique GUIDs (set): {len(guid_set)}")
+    if len(guid_list_verify) == len(guid_set):
+        print(f"  ✓ All GUIDs are unique!")
+    else:
+        duplicates = len(guid_list_verify) - len(guid_set)
+        print(f"  ✗ Warning: {duplicates} duplicate GUID(s) found!")
 
     package = genanki.Package(decks)
     package.media_files = glob.glob("loci/*.png")
 
     package.write_to_file('memo_anki.apkg')
 
-    with pandas.ExcelWriter(f"memo_sets.xlsx") as writer:
-        df = pandas.DataFrame(counter_list)
-        df.to_excel(writer, sheet_name="Loci Sets", index=False)
-        writer.sheets["Loci Sets"].autofit()
+    # # Generate memo_sets.xlsx
+    # excelmemo_sets()
