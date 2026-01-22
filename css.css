@@ -1,0 +1,167 @@
+
+#card-body {
+    font: 17px/1.85em 'Avenir Next'; /* tightened line-height */
+    text-align: justify;
+    margin-top: 50px;
+    margin-bottom: 60px;
+}
+
+.acentersmall {
+    line-height: 1.25em; /* further reduce spacing for compact blocks */
+}
+
+.content {
+    padding-left: 0.5em;
+    border-left: 4px solid transparent;
+}
+
+.header {
+    font: bold 17px/1.5em;
+    padding-left: 0.5em;
+}
+
+.header-red {
+    border-left: 4px solid #db4437;
+    color: #db4437;
+}
+
+.header-green {
+    border-left: 4px solid #0f9d58;
+    color: #0f9d58;
+}
+
+.header-blue {
+    border-left: 4px solid #4285f4;
+    color: #4285f4;
+}
+
+.header-yellow {
+    border-left: 4px solid #f4b400;
+    color: #f4b400;
+}
+
+
+
+
+
+
+
+.genuine-cloze[show-state="hint"] {
+    border-bottom: 2px solid #ff5c82;
+    background-color: rgba(255, 92, 130, 0.16);
+}
+
+.pseudo-cloze[show-state="hint"] {
+    border-bottom: 2px solid #7ba7ff;
+    background-color: rgba(66, 133, 244, 0.16);
+}
+
+#show-one-cloze-left,
+#show-one-cloze-right,
+#no-more-cloze {
+    position: fixed;
+    z-index: 9;
+    top: 7.5vh;
+    height: 85vh;
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+
+
+
+
+
+
+
+#show-one-cloze-left {
+    left: 0;
+}
+
+#show-one-cloze-right {
+    right: 0;
+}
+
+#no-more-cloze {
+    width: 10px;
+    background-color: rgba(219, 68, 55, 0.65);
+    left: 0;
+    display: none;
+}
+
+#show-all-pseudo-clozes {
+    height: 20px;
+    width: 100%;
+    position: fixed;
+    z-index: 9;
+    top: 0;
+    left: 0;
+    background-color: transparent;
+}
+
+.mobile ol,
+.mobile ul,
+.mobile li {
+    margin-left: -0.5em;
+}
+
+.mobile li {
+    margin: 0.1em, inherit;
+}
+
+table {
+    border-collapse: collapse;
+    margin: 0.5em;
+}
+
+thead tr,
+tfoot tr {
+    border-top: 2px solid #0f9d58;
+    border-bottom: 2px solid #0f9d58;
+}
+
+td,
+th {
+    border: 1px solid #0f9d58;
+    padding: 0.3em 0.5em;
+}
+
+hr {
+    border-top: 1px solid #aaaaaa;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+pre {
+    border-left: 2px solid #0f9d58;
+    padding-left: 10px;
+}
+
+code,
+kbd,
+var,
+samp,
+tt {
+    background-color: #fdf3d6;
+}
+
+.disable-select {
+    -webkit-touch-callout: none;
+    user-select: none;
+}
+
+/* Center all clozes in a single vertical column */
+#enhanced-clozes {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+}
+#enhanced-clozes .genuine-cloze,
+#enhanced-clozes .pseudo-cloze {
+    display: block;
+    text-align: center;
+    max-width: 600px; /* limit width for readability */
+    box-sizing: border-box;
+    margin: 4px 0;
+}

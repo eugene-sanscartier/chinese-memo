@@ -1,0 +1,9 @@
+{{FrontSide}}
+<script>
+// Back side: reveal every cloze (genuine + pseudo)
+setTimeout(function(){
+  document.querySelectorAll('.genuine-cloze,.pseudo-cloze').forEach(function(el){
+    try { toggleCloze(el,'answer'); } catch(e) { el.setAttribute('show-state','answer'); }
+  });
+},0);
+</script>
