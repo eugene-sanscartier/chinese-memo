@@ -177,7 +177,10 @@ def build_standard_note(entry, memo_data, next_entry=None):
 
     # Get image for the character
     radical_key = entry.get('_radical_key', '')
-    img, loci_name = get_image_file(radical_key, loci_data, entry["position"], char)
+    full_img = False
+    if radical_key in ["⺁音夕文㇎比乂气非黑革⺕龙匕彐玨牙麻吅羽", "㇇出生戶多面无长已见西回老水入金弋色品飞风言兵示彡首众足母斗双网血食州香圭玉肉森弱㚘鼓页麦兟瓦鬲鸟炎鼻赫疋歺⺺竹昌赤韦鼠吕晶豆隶瓜乙⺪寸欠卜卵⺳鼎龟厽镸犬戋凸凹棘毋", "亻", "口", "手至而自㇗里从巳曰己⺧角廴北川隹片卯缶骨鬼尢臼辡辰", "木", "甘丬牛爫罒鱼虍", "羊走士弓", "艹", "覀子干行耂冖身夂匸舌龴刀斤", "讠", "一"]:
+        full_img = True
+    img, loci_name = get_image_file(radical_key, loci_data, entry["position"], char, full_img=full_img)
     # Determine loci key for display and include trailing number as #N if present
     loci_key_std = get_loci_key(radical_key, entry["position"], char, loci_data)
     m = re.search(r'(\d+)\s*$', loci_key_std)
@@ -241,12 +244,12 @@ def get_loci_key(radical_key: str, position: int, char: str, loci_data: dict) ->
     return radical_key  # fallback to radical if no loci found
 
 
-def get_image_file(key: str, loci_data: dict, k: int, char: str):
+def get_image_file(key: str, loci_data: dict, k: int, char: str, full_img=False):
     img_file = ""
 
     special = ["㇒雨虫", "𠂇囗丿田礻耳", "衤巾", "⺊又⺈勹饣"]
     if key in special:
-        radical = decomposer.decompose(char, 2)["components"][0]  # pyright: ignore[reportOptionalSubscript, reportCallIssue, reportArgumentType]
+        radical = decomposer.decompose(char, 2)["components"][0]
 
         img_file = f"loci/{radical}.png"
         loci_name = loci_data.get(radical, {}).get("name", "")
@@ -254,14 +257,20 @@ def get_image_file(key: str, loci_data: dict, k: int, char: str):
 
     for loci, loci_info in loci_data.items():
         if loci.startswith(key):
-            if loci_info["range"][0] <= k <= loci_info["range"][1]:
 
+            if full_img:
+                if key[0] == "㇇": key = "㇇"
+
+                img_file = f"loci/{key}.png"
+                loci_name = loci_data.get(loci, {}).get("name", "")
+                break
+
+            if loci_info["range"][0] <= k <= loci_info["range"][1]:
                 loci_name = loci_data.get(loci, {}).get("name", "")
 
                 if loci[0] == "㇇":
                     loci = "㇇" + loci[-1]
                 img_file = f"loci/{loci}.png"
-
                 break
 
     return img_file, loci_name
@@ -275,7 +284,7 @@ def excelmemo_sets():
             dictionary_char += [entry]
     dictionary_char = {entry["char"]: entry for entry in dictionary_char if "char" in entry}
 
-    with open("translation/gloss_translation-qwen-max.json", "r", encoding="utf-8") as file_obj:
+    with open("gloss_translated.json", "r", encoding="utf-8") as file_obj:
         gloss_list = json.load(file_obj)
 
     with pandas.ExcelWriter(f"memo_sets.xlsx") as writer:
