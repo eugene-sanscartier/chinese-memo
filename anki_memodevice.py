@@ -59,7 +59,7 @@ def generate_character_html(entry, memo_data):
                 sub_key, sub_value = subcomponent[0], subcomponent[1]
                 subcomp_str += f"{sub_key}({sub_value}); "
             if subcomp_str:
-                decomp_html += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong>●</strong> {subcomp_str}<br></div>'
+                decomp_html += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong class="subdetail-marker">●</strong> {subcomp_str}<br></div>'
 
     # Build hint HTML
     hint_html = ""
@@ -75,7 +75,7 @@ def generate_character_html(entry, memo_data):
 
     # Build character display
     char_html = ""
-    char_html += f'<div style="font-size:45px;text-align:center;margin-top:25px;font-weight:100;"">{char}</div>'
+    char_html += f'<div style="font-family:\'LXGW WenKai GB Lite Light\';font-size:45px;line-height:normal;text-align:center;margin-top:25px;">{char}</div>'
     char_html += f'<div class="acentersmall" style="text-align:center;"><strong>P</strong>: {entry["position"]} / <strong>R</strong>: {entry["rank"]} / <strong>C</strong>: {float(entry["coverage"]):.2f}%</div><br>'
 
     # Build detailed pinyin breakdown
@@ -88,15 +88,15 @@ def generate_character_html(entry, memo_data):
     pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:5%;"><strong>━</strong> {pinyin_str}<br></div>'
 
     if pinyin_initial != "":
-        pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong>●</strong> <strong>[{pinyin_initial}]</strong> - {memo_data["initials"][pinyin_initial]}<br></div>'
+        pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong class="subdetail-marker">●</strong> <strong>[{pinyin_initial}]</strong> - {memo_data["initials"][pinyin_initial]}<br></div>'
 
     if pinyin_final in memo_data["finals"]:
         action_str = f"{memo_data['finals'][pinyin_final]['action']}({memo_data['finals'][pinyin_final]['image']})"
-        pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong>●</strong> <strong>[{pinyin_final}]</strong> - {action_str}<br></div>'
+        pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong class="subdetail-marker">●</strong> <strong>[{pinyin_final}]</strong> - {action_str}<br></div>'
     else:
-        pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong>●</strong> <strong>[{pinyin_final}]</strong> - {memo_data["initials"][pinyin_final]}<br></div>'
+        pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong class="subdetail-marker">●</strong> <strong>[{pinyin_final}]</strong> - {memo_data["initials"][pinyin_final]}<br></div>'
 
-    pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong>●</strong> <strong>[{memo_data["tones"][pinyin_tone]["symbol"]}]</strong> - {memo_data["tones"][pinyin_tone]["view"]}'
+    pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong class="subdetail-marker">●</strong> <strong>[{memo_data["tones"][pinyin_tone]["symbol"]}]</strong> - {memo_data["tones"][pinyin_tone]["view"]}'
     if u_is_v:
         pinyin_detailed += f" - <strong>[{memo_data['tones']['6']['symbol']}]</strong>"
     pinyin_detailed += "<br></div>"
@@ -203,8 +203,8 @@ def build_standard_note(entry, memo_data, next_entry=None):
         next_html += '</div></div><br>'
         answer_html += next_html
 
-    # Format question with large character only
-    char_display = f'<div style="font-size:45px;text-align:center;margin-top:25px;">{char}</div>'
+    # Format question with the large character and French gloss
+    char_display = f'<div style="font-family:\'LXGW WenKai GB Lite Light\';font-size:45px;line-height:normal;text-align:center;margin-top:25px;">{char}</div><div class="acentersmall" style="text-align:center;">({entry["gloss_fr"]})</div>'
     question_html = char_display
 
     # Add image to bottom of answer
@@ -220,7 +220,7 @@ def build_standard_note(entry, memo_data, next_entry=None):
             "qfmt": "<div id='card-body'>{{Character}}</div>",
             "afmt": "{{FrontSide}}<hr id=answer>{{Answer}}"
         },
-    ])
+    ], css=CSS)
 
     guid = generate_guid(entry)
     note = genanki.Note(model=model, fields=[question_html, answer_html], guid=guid)
@@ -398,6 +398,7 @@ if __name__ == "__main__":
 
     package = genanki.Package(decks)
     package.media_files = glob.glob("loci/*.png")
+    package.media_files += ["_LXGWWenKaiGBLite-Light.ttf"]
 
     package.write_to_file('memo_anki.apkg')
 

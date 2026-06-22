@@ -1,4 +1,9 @@
 
+@font-face {
+    font-family: 'LXGW WenKai GB Lite Light';
+    src: url('_LXGWWenKaiGBLite-Light.ttf');
+}
+
 #card-body {
     font: 17px/1.85em 'Avenir Next'; /* tightened line-height */
     text-align: justify;
@@ -8,6 +13,10 @@
 
 .acentersmall {
     line-height: 1.25em; /* further reduce spacing for compact blocks */
+}
+
+.subdetail-marker {
+    font-size: 10px;
 }
 
 .content {
