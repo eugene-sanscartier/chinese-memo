@@ -2,6 +2,7 @@ import html
 import json
 import os
 import re
+import unicodedata
 from urllib.parse import unquote
 import numpy.random
 import hashlib
@@ -18,6 +19,12 @@ import re
 _re_number = re.compile(r'\d')
 
 import genanki
+
+AUDIO_DIR = "../pinyin-audio/allsetlearning"
+
+def pinyin_audio_filename(pinyin_data):
+    final = pinyin_data["final"].replace("u", "ü") if pinyin_data["u_is_v"] else pinyin_data["final"]
+    return unicodedata.normalize("NFD", f'{pinyin_data["initial"]}{final}{pinyin_data["tone"]}.mp3')
 
 with open("css.css", "r", encoding="utf-8") as file_obj:
     CSS = file_obj.read()
@@ -48,7 +55,7 @@ def generate_character_html(entry, memo_data):
         decomp_html += '<div class="acentersmall" style="text-align:left;"><strong>Decomposition:</strong><br>'
         for component in entry["components"]:
             component_gloss_str = f'{component["gloss_fr"]} [{component["gloss"]}]'
-            decomp_html += f'<div style="margin-top:2px;text-align:left;margin-left:5%;"><strong>━</strong> {component["character"]} ({component_gloss_str})'
+            decomp_html += f'<div style="margin-top:2px;text-align:left;margin-left:5%;"><strong>━</strong> <span class="decomp-char">{component["character"]}</span> ({component_gloss_str})'
             if "hint" in component and component["hint"] and component["hint"] not in ["None", ""]:
                 decomp_html += f"[Hint: {component['hint']}]"
             decomp_html += "<br></div>"
@@ -57,7 +64,7 @@ def generate_character_html(entry, memo_data):
             subcomp_str = ""
             for subcomponent in list(subcomponents_fr.items()):
                 sub_key, sub_value = subcomponent[0], subcomponent[1]
-                subcomp_str += f"{sub_key}({sub_value}); "
+                subcomp_str += f'<span class="decomp-char">{sub_key}</span>({sub_value}); '
             if subcomp_str:
                 decomp_html += f'<div style="margin-top:2px;text-align:left;margin-left:10%;"><strong class="subdetail-marker">●</strong> {subcomp_str}<br></div>'
 
@@ -74,7 +81,7 @@ def generate_character_html(entry, memo_data):
     gloss_html += f'<div style="margin-top:2px;text-align:left;margin-left:5%;"><strong>━</strong> {gloss_fr} [{gloss}]</div>'
 
     # Build character display
-    char_html = ""
+    char_html = f'[sound:{pinyin_audio_filename(pinyin_data)}]'
     char_html += f'<div style="font-family:\'LXGW WenKai GB Lite Light\';font-size:45px;line-height:normal;text-align:center;margin-top:25px;">{char}</div>'
     char_html += f'<div class="acentersmall" style="text-align:center;"><strong>P</strong>: {entry["position"]} / <strong>R</strong>: {entry["rank"]} / <strong>C</strong>: {float(entry["coverage"]):.2f}%</div><br>'
 
@@ -398,7 +405,9 @@ if __name__ == "__main__":
 
     package = genanki.Package(decks)
     package.media_files = glob.glob("loci/*.png")
-    package.media_files += ["_LXGWWenKaiGBLite-Light.ttf"]
+    package.media_files += ["_LXGWWenKaiGBLite-Light.ttf", "_HanaMinA.otf", "_HanaMinB.otf"]
+    audio_files = {pinyin_audio_filename(e["pinyin"]) for entrys in dict_entries.values() for e in entrys}
+    package.media_files += [f"{AUDIO_DIR}/{f}" for f in audio_files if os.path.exists(f"{AUDIO_DIR}/{f}")]
 
     package.write_to_file('memo_anki.apkg')
 

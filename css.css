@@ -4,6 +4,20 @@
     src: url('_LXGWWenKaiGBLite-Light.ttf');
 }
 
+@font-face {
+    font-family: 'HanaMinA';
+    src: url('_HanaMinA.otf');
+}
+
+@font-face {
+    font-family: 'HanaMinB';
+    src: url('_HanaMinB.otf');
+}
+
+.decomp-char {
+    font-family: 'HanaMinA', 'HanaMinB';
+}
+
 #card-body {
     font: 17px/1.85em 'Avenir Next'; /* tightened line-height */
     text-align: justify;
