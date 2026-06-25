@@ -769,6 +769,148 @@ def build_radical_cluster_index(characters, ids_dict, threshold=0.25):
     return result
 
 
+# ── compound word context index ───────────────────────────────────────────────
+
+def build_compound_index(characters, ids_dict, word_freq, min_freq=500, df_max=20):
+    """Build a character index based on compound word co-occurrence patterns.
+
+    For each character, finds the 2-char compounds it appears in (left and right
+    position), then identifies other characters that appear in similar compound
+    patterns.  Two characters sharing a RARE compound partner (one that appears
+    with ≤ df_max dataset chars) are "compound-confused": a learner might write
+    the wrong character because both fit the same word-slot.
+
+    Uses IDF-weighted Jaccard over rare partners to avoid domination by extremely
+    common characters (的/了/在 appear in thousands of compounds).
+
+    Per-character output fields:
+      left_compounds   — top 8 most frequent words where char appears first
+      right_compounds  — top 8 most frequent words where char appears second
+      compound_similar — other dataset chars sharing rare compound partners
+      compound_only    — compound_similar chars NOT found by IDS Jaccard >= 0.25
+    """
+    char_set = set(characters)
+    left_partners  = defaultdict(dict)   # char → {partner: freq}
+    right_partners = defaultdict(dict)   # char → {partner: freq}
+
+    for word, freq in word_freq.items():
+        if len(word) != 2: continue
+        f = int(freq)
+        if f < min_freq: continue
+        a, b = word[0], word[1]
+        if a in char_set:
+            if f > left_partners[a].get(b, 0): left_partners[a][b] = f
+        if b in char_set:
+            if f > right_partners[b].get(a, 0): right_partners[b][a] = f
+
+    # Partner document frequency: how many dataset chars use partner X
+    ldf = defaultdict(int)
+    rdf = defaultdict(int)
+    for c in characters:
+        for p in left_partners[c]:  ldf[p] += 1
+        for p in right_partners[c]: rdf[p] += 1
+
+    n = len(characters)
+
+    def _rare_set(partner_dict, df_map):
+        """Return set of partners with df <= df_max (rare = distinctive)."""
+        return frozenset(p for p in partner_dict if df_map[p] <= df_max)
+
+    def _idf_jac(sa, sb, df_map):
+        if not sa and not sb: return 0.0
+        shared = sa & sb; union = sa | sb
+        sw = sum(math.log(n / (df_map[p] + 1)) for p in shared)
+        uw = sum(math.log(n / (df_map[p] + 1)) for p in union)
+        return sw / (uw + 1e-9) if uw > 0 else 0.0
+
+    # Precompute rare partner sets
+    rare_left  = {c: _rare_set(left_partners[c],  ldf) for c in characters}
+    rare_right = {c: _rare_set(right_partners[c], rdf) for c in characters}
+
+    # Build per-char compound_similar: IDF-Jaccard >= 0.15 (either direction)
+    COMP_THRESH = 0.15
+    pos_map = {c: get_pos_feats(c, ids_dict) for c in characters}
+
+    compound_neighbors = defaultdict(list)
+    active = [c for c in characters if rare_left[c] or rare_right[c]]
+    for i, a in enumerate(active):
+        for b in active[i+1:]:
+            lj = _idf_jac(rare_left[a],  rare_left[b],  ldf)
+            rj = _idf_jac(rare_right[a], rare_right[b], rdf)
+            best = max(lj, rj)
+            if best >= COMP_THRESH:
+                compound_neighbors[a] += [(b, lj, rj)]
+                compound_neighbors[b] += [(a, lj, rj)]
+
+    result = {}
+    for char in characters:
+        ids_sim = _all_ids_similar(char, pos_map, characters)
+
+        # Top compounds (sorted by freq)
+        lc = sorted(left_partners[char].items(), key=lambda x: -x[1])[:8]
+        rc = sorted(right_partners[char].items(), key=lambda x: -x[1])[:8]
+        left_words  = [char + p for p, _ in lc]
+        right_words = [p + char for p, _ in rc]
+
+        # compound_similar: sorted by best IDF-Jaccard
+        neighbors = sorted(compound_neighbors.get(char, []), key=lambda x: -max(x[1], x[2]))
+        comp_sim = [b for b, _, _ in neighbors[:8]]
+        comp_only = [b for b in comp_sim if b not in ids_sim]
+
+        # Shared rare partners for the top neighbors
+        shared_patterns = {}
+        for b, lj, rj in neighbors[:4]:
+            sl = sorted(rare_left[char] & rare_left[b])[:4]
+            sr = sorted(rare_right[char] & rare_right[b])[:4]
+            if sl or sr: shared_patterns[b] = {'left': sl, 'right': sr}
+
+        entry = {}
+        if left_words:   entry['left_compounds']   = left_words
+        if right_words:  entry['right_compounds']  = right_words
+        if comp_sim:     entry['compound_similar']  = comp_sim
+        if comp_only:    entry['compound_only']     = comp_only
+        if shared_patterns: entry['shared_patterns'] = shared_patterns
+        result[char] = entry
+    return result
+
+
+def build_semantic_index(characters, ids_dict, char_to_entry):
+    """Build a semantic synonym index based on MMA English gloss words.
+
+    Characters sharing the same single-word gloss form a semantic confusion group —
+    a learner who knows the MEANING but not the FORM may write the wrong one.
+
+    Per-character output fields:
+      gloss           — English meaning keyword (memodevice 'gloss' field)
+      gloss_group     — other chars sharing this exact gloss
+      semantic_only   — gloss_group chars NOT found by IDS Jaccard >= 0.25
+    """
+    pos_map = {c: get_pos_feats(c, ids_dict) for c in characters}
+    gloss_to_chars = defaultdict(list)
+    char_gloss = {}
+    for c in characters:
+        g = char_to_entry.get(c, {}).get('gloss', '').strip().lower()
+        if g:
+            char_gloss[c] = g
+            gloss_to_chars[g] += [c]
+    result = {}
+    for char in characters:
+        gloss = char_gloss.get(char)
+        if not gloss:
+            result[char] = {}
+            continue
+        group = [c for c in gloss_to_chars[gloss] if c != char]
+        if not group:
+            result[char] = {'gloss': gloss}
+            continue
+        ids_sim = _all_ids_similar(char, pos_map, characters)
+        sem_only = [c for c in group if c not in ids_sim]
+        entry = {'gloss': gloss, 'gloss_group': group}
+        if sem_only: entry['semantic_only'] = sem_only
+        result[char] = entry
+    return result
+
+
 # ── group finding ─────────────────────────────────────────────────────────────
 
 def find_similar_chars(characters, ids_dict, mode='disc'):
@@ -985,3 +1127,50 @@ if __name__ == "__main__":
     with open('data_similar_radical.json', 'w', encoding='utf-8') as f:
         json.dump(radical_idx, f, ensure_ascii=False, indent=2)
     print("\nSaved to data_similar_radical.json")
+
+    print("\nBuilding compound word context index...")
+    import warnings; warnings.filterwarnings('ignore')
+    import logging; logging.disable(logging.CRITICAL)
+    from hanzipy.dictionary import HanziDictionary
+    word_freq = HanziDictionary().word_freq
+    compound_idx = build_compound_index(characters, ids_dict, word_freq)
+    comp_sim_count = sum(1 for e in compound_idx.values() if e.get('compound_similar'))
+    comp_only_count = sum(1 for e in compound_idx.values() if e.get('compound_only'))
+    print(f"  chars with compound_similar: {comp_sim_count}")
+    print(f"  chars with compound_only (not IDS): {comp_only_count}")
+    print("\n── compound index (sample) ──")
+    for char in ['早','晚','他','她','做','作','清','情','已','己','大','太','干','千']:
+        if char not in compound_idx: continue
+        e = compound_idx[char]
+        lc = ','.join(e.get('left_compounds', [])[:4])
+        rc = ','.join(e.get('right_compounds', [])[:4])
+        cs = ''.join(e.get('compound_similar', [])[:6])
+        co = ''.join(e.get('compound_only', [])[:4])
+        print(f"  {char}: L=[{lc}] R=[{rc}] sim={cs} only={co}")
+        for b, pats in list(e.get('shared_patterns', {}).items())[:2]:
+            sl = ''.join(pats.get('left', []))
+            sr = ''.join(pats.get('right', []))
+            if sl: print(f"       shared_L with {b}: {sl}")
+            if sr: print(f"       shared_R with {b}: {sr}")
+    with open('data_similar_compound.json', 'w', encoding='utf-8') as f:
+        json.dump(compound_idx, f, ensure_ascii=False, indent=2)
+    print("\nSaved to data_similar_compound.json")
+
+    print("\nBuilding semantic synonym index...")
+    char_to_entry = {e['character']: e for g in data.values() for e in g}
+    semantic_idx = build_semantic_index(characters, ids_dict, char_to_entry)
+    sem_group_count = sum(1 for e in semantic_idx.values() if e.get('gloss_group'))
+    sem_only_count = sum(1 for e in semantic_idx.values() if e.get('semantic_only'))
+    print(f"  chars with gloss_group: {sem_group_count}")
+    print(f"  chars with semantic_only (not IDS): {sem_only_count}")
+    print("\n── semantic index (sample) ──")
+    for char in ['清', '晰', '楚', '己', '自', '已', '曾', '既', '明', '亮', '早', '晚', '夜']:
+        if char not in semantic_idx: continue
+        e = semantic_idx[char]
+        g = e.get('gloss', '—')
+        grp = ''.join(e.get('gloss_group', []))
+        so = ''.join(e.get('semantic_only', []))
+        print(f"  {char} [{g}]  group={grp}  semantic_only={so}")
+    with open('data_similar_semantic.json', 'w', encoding='utf-8') as f:
+        json.dump(semantic_idx, f, ensure_ascii=False, indent=2)
+    print("\nSaved to data_similar_semantic.json")

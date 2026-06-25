@@ -4,7 +4,7 @@
 
 Characters that share visual components are easy to confuse during recall. This module identifies those groups and, for each character, computes the positional component features that best identify it among all visually similar characters. Those features surface on the question side of an Anki card.
 
-Running `data_similar.py` produces **eight** output files:
+Running `data_similar.py` produces **ten** output files:
 
 | file | algorithm | format | use case |
 |---|---|---|---|
@@ -16,6 +16,8 @@ Running `data_similar.py` produces **eight** output files:
 | `data_similar_pinyin.json` | IDS visual + MMA pinyin phonological cross-modal | flat dict | annotates visual confusions with phonological distance; surfaces "double danger" pairs |
 | `data_similar_visual.json` | pixel-level HOG edge features, cosine similarity | flat dict | catches purely visual pairs IDS misses: 己/已, 乌/鸟, 干/千, 义/叉/又 |
 | `data_similar_radical.json` | abstract radical clusters (氵/冫→DRIP, 扌/手→HAND, …) | flat dict | surfaces cross-radical confusions invisible to concrete IDS Jaccard |
+| `data_similar_compound.json` | IDF-weighted Jaccard over rare compound word partners (HanziDictionary) | flat dict | contextual confusion pairs: chars interchangeable in the same compound slots |
+| `data_similar_semantic.json` | shared English gloss grouping (memodevice `gloss` field) | flat dict | semantic synonym groups: different characters with the same meaning |
 
 ---
 
@@ -313,6 +315,88 @@ New field:
 
 Note: 次/决/准/况 use **冫** (bīng, U+51AB, ice radical) while 清/浸/泳 use **氵** (sān shuǐ, U+6C35, water radical). They look nearly identical to learners but have IDS Jaccard = 0 (no shared features). The cluster index surfaces these as potential confusion pairs.
 
+### compound word context — IDF-weighted Jaccard over rare partners
+
+`data_similar_compound.json` characterizes each character by which compound words it appears in. Two characters are contextually similar if they are interchangeable in the same compound slots — they appear before or after the same rare partner characters.
+
+**Source**: `HanziDictionary().word_freq` from `hanzipy` (456K entries, ~242K two-character words).
+
+**Algorithm**:
+
+1. For each character `A` in 2-char words with freq ≥ 500: collect `left_partners[A]` (chars following A) and `right_partners[A]` (chars preceding A).
+2. Compute document frequency (df): for each partner `p`, count how many dataset chars have `p` as a partner. High-df partners (e.g., 上, 理, 通) appear with hundreds of chars and are filtered out (df_max=20). Only RARE partners remain.
+3. Rare-partner Jaccard with IDF weighting: `sum(idf(p) for p in shared) / sum(idf(p) for p in union)`, where `idf(p) = log(n / (df(p)+1))`. Threshold=0.15.
+4. `compound_only` = compound-similar chars NOT found by IDS Jaccard ≥ 0.25 — genuinely novel contextual pairs.
+
+**Output fields per character:**
+
+| field | meaning |
+|---|---|
+| `left_compounds` | top 8 most frequent 2-char words where this char appears first (e.g., 早→早安/早餐/早上) |
+| `right_compounds` | top 8 most frequent 2-char words where this char appears second (e.g., 晚→今晚/昨晚/明晚) |
+| `compound_similar` | up to 8 chars with highest IDF-Jaccard over rare partners |
+| `compound_only` | compound_similar chars NOT found by IDS Jaccard ≥ 0.25 |
+| `shared_patterns` | for top-4 compound_similar chars: the shared rare left and right partners |
+
+**Dataset statistics (2998 chars):**
+- 1955 chars have at least one `compound_similar` neighbor
+- 1934 chars have at least one `compound_only` neighbor (contextually confused but NOT visually similar)
+
+**Notable compound pairs:**
+```
+早/晚       share left partners 安/餐 → 早安/晚安, 早餐/晚餐
+他/她/它    share left partner 们 → 他们/她们/它们
+做/作       share left partners 为/出/饭 → 做作/做出/做饭  vs  作为/作出
+己/足/识    share right partner 知 (df=8) → 知己/知足/知识
+清/漠       share right partner 冷 → 冷清/冷漠 (both describe emotional coldness)
+已/曾       share right partner 经 → 已经/曾经
+千/百/亿   share number-expression patterns
+```
+
+The compound index finds connections invisible to both visual and phonological methods. A learner who knows 知X exists may confuse 知己/知足/知识 — three different characters after 知.
+
+### semantic synonyms — shared English gloss
+
+`data_similar_semantic.json` groups characters by the single-word English gloss from `data_memodevice.json`. Characters sharing the same gloss are semantic synonyms — a learner who knows the meaning but not the form may write the wrong one.
+
+**Algorithm**: group all 2998 characters by their `gloss` field. For each character, record all other chars in its group, then subtract the IDS-similar set (Jaccard ≥ 0.25) to get `semantic_only`.
+
+**Output fields per character:**
+
+| field | meaning |
+|---|---|
+| `gloss` | English meaning keyword (e.g., "clear", "already", "bright") |
+| `gloss_group` | other dataset chars sharing this exact gloss |
+| `semantic_only` | gloss_group chars NOT found by IDS Jaccard ≥ 0.25 — pure semantic confusion |
+
+**Dataset statistics (2998 chars):**
+- 2998 chars have a `gloss` entry (100% coverage)
+- 956 chars have at least one `gloss_group` sibling
+- 801 chars have at least one `semantic_only` neighbor (same meaning, not visually similar)
+- 396 distinct glosses contain 2+ characters; largest groups:
+
+```
+bright (10): 慧 煌 炯 熙 亮 明 晃 昭 赫 耿
+surname (14): 窦 冯 廖 黎 姜 赵 邓 谭 邵 邱 刘 蒋 蔡 潘
+clear (5):   彰 晰 楚 清 浏
+cover (5):   套 庇 盖 蒙 蔽
+beautiful (5): 美 娟 丽 艳 倩
+hide (5):    匿 隐 躲 藏 潜
+```
+
+**Notable semantic pairs:**
+```
+清/楚  both mean "clear" AND form the compound 清楚 — the two halves of one word share the same meaning
+己/自  both mean "self" AND appear together in 自己 — the learner must know which character the meaning is mapped to
+已/曾/既  all mean "already" — three distinct characters for the same adverb
+晚/夜  both mean "night" — 晚上 vs 夜晚 are near-synonyms
+冷/寒  both mean "cold"
+净/洁  both mean "clean"
+目/眼  both mean "eye" — 目 is classical/radical, 眼 is colloquial
+```
+
+The semantic index finds confusion that has nothing to do with visual or phonological similarity — pure conceptual confounds. Combined with `compound_only` (contextual pairs) and `visual_only` (pixel pairs), it provides a third orthogonal confusion dimension.
+
 ### hybrid — IDS positions + HanziDecomposer components
 
 `data_similar_hybrid.json` keeps the same flat, char-indexed shape as `data_similar_global.json`, but expands each character's feature set:
@@ -569,10 +653,12 @@ Build a pairwise Jaccard similarity graph over all characters. Run Louvain commu
 
 ### Integration of new fields into `anki_memodevice.py`
 
-The three new indexes (`pinyin`, `visual`, `radical`) are not yet used in card generation. Planned additions:
+Five new indexes (`pinyin`, `visual`, `radical`, `compound`, `semantic`) are not yet used in card generation. Planned additions:
 - `double_danger` — flag on the card face when a char is both visually and phonologically similar to another
 - `visual_only` — supplement `similar` display for chars like 己/已 that IDS misses
 - `cluster_only` — annotation for 氵/冫 cross-radical pairs ("⚠ also confusable with 次/决 which use 冫 instead of 氵")
+- `compound_only` / `left_compounds` / `right_compounds` — contextual usage examples + cross-char usage warnings
+- `semantic_only` — note when two chars share a meaning ("清 and 楚 both mean 'clear' — note the compound 清楚")
 
 ---
 
