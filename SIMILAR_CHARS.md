@@ -4,7 +4,7 @@
 
 Characters that share visual components are easy to confuse during recall. This module identifies those groups and, for each character, computes the positional component features that best identify it among all visually similar characters. Those features surface on the question side of an Anki card.
 
-Running `data_similar.py` produces **ten** output files:
+Running `data_similar.py` produces **eleven** output files:
 
 | file | algorithm | format | use case |
 |---|---|---|---|
@@ -18,6 +18,8 @@ Running `data_similar.py` produces **ten** output files:
 | `data_similar_radical.json` | abstract radical clusters (氵/冫→DRIP, 扌/手→HAND, …) | flat dict | surfaces cross-radical confusions invisible to concrete IDS Jaccard |
 | `data_similar_compound.json` | IDF-weighted Jaccard over rare compound word partners (HanziDictionary) | flat dict | contextual confusion pairs: chars interchangeable in the same compound slots |
 | `data_similar_semantic.json` | shared English gloss grouping (memodevice `gloss` field) | flat dict | semantic synonym groups: different characters with the same meaning |
+| `data_similar_subcomp.json` | position-agnostic IDF-Jaccard over direct IDS children | flat dict | cross-position component sharing: 削(肖刂) ↔ 梢(木肖), 案(安木) ↔ 按(扌安) |
+| `data_similar_deepcomp.json` | IDF-Jaccard over depth-2+ complex components (complex = has IDS operator) | flat dict | hidden ancestry pairs: 骑(马+奇) ↔ 荷(艹+何) via shared 可; 喜/凳/禧 via shared 豆 |
 
 ---
 
@@ -315,6 +317,57 @@ New field:
 
 Note: 次/决/准/况 use **冫** (bīng, U+51AB, ice radical) while 清/浸/泳 use **氵** (sān shuǐ, U+6C35, water radical). They look nearly identical to learners but have IDS Jaccard = 0 (no shared features). The cluster index surfaces these as potential confusion pairs.
 
+### position-agnostic direct-component — cross-position component sharing
+
+`data_similar_subcomp.json` finds characters that share the same prominent component but in different structural positions. The IDS positional approach uses **(slot, component)** features, so it only finds similarity when the *same component* appears in the *same slot*:
+
+```
+削 = ⿰肖刂  {L=肖, R=刂}
+梢 = ⿰木肖  {L=木, R=肖}
+→ IDS positional Jaccard = 0  (L=肖 ≠ R=肖)
+
+案 = ⿱安木  {T=安, B=木}
+按 = ⿰扌安  {L=扌, R=安}
+→ IDS positional Jaccard = 0  (T=安 ≠ R=安)
+```
+
+Both 削/梢 prominently contain 肖. Both 案/按 prominently contain 安. A learner who recognizes 肖 or 安 in one character will be confused by the other.
+
+**Algorithm**: For each character, extract DIRECT IDS children as canonical strings (nested operator structures become their IDS string). Compute IDF over all characters' direct-child appearances — private-use components unique to one character get maximal IDF and naturally penalize sparse sets, preventing false positives. Compute position-agnostic IDF-Jaccard. Threshold = 0.35.
+
+**Output fields per character:**
+
+| field | meaning |
+|---|---|
+| `direct_components` | direct IDS children as canonical strings (first decomposition level only) |
+| `subcomp_similar` | up to 8 chars with highest position-agnostic IDF-Jaccard (≥ 0.35) |
+| `subcomp_only` | subcomp_similar chars NOT found by IDS positional Jaccard ≥ 0.25 |
+| `subcomp_shared` | for top-4 subcomp_only pairs: the shared component(s) |
+
+**Dataset statistics (2998 chars, threshold=0.35):**
+- 2266 chars have at least one `subcomp_similar` neighbor
+- 1738 chars have at least one `subcomp_only` neighbor
+
+**Why IDF-weighted?** Common components like 口, 木, 氵 appear in 100–400 characters — sharing them provides little information. Rare components like 相(9 strokes, ~20 dataset chars), 朔(12 strokes, ~5 chars), 戌(6 strokes, ~12 chars) carry high signal. The IDF formula `log(n / (df+1))` naturally down-weights ubiquitous radicals.
+
+**Why private-use chars in denominator?** Characters like 赛 = ⿱𡨄贝 have 𡨄 (private-use, df=1) as a direct child. If I filtered it out, 赛 and 赢 would both appear as `{贝}` only, giving IDF-Jaccard=1.0 even though they look nothing alike. Keeping 𡨄 in the denominator gives: `idf(贝) / (idf(𡨄) + idf(贝) + idf(𣎆)) = 3.9/18.5 = 0.21` — correctly below threshold.
+
+**Notable new pairs found:**
+
+```
+削/梢/消/哨/俏/悄/销   all share 肖 — 削=⿰肖刂(肖 LEFT), others have 肖 RIGHT
+案/按               both contain 安 — 案=⿱安木, 按=⿰扌安
+含/吟/念/贪/琴        all share 今 — 含=⿱今口, 吟=⿰口今, 念=⿱今心, 贪=⿱今贝
+想/湘/箱/厢/霜        all contain 相 — in ⿱T/B and ⿰L/R positions
+哥/呵/河/柯/何/阿      哥=⿱可可(两个可), others are ⿰X可 — 可 is the shared element
+辉/晃              辉=⿰光军, 晃=⿱日光 — both contain 光
+辉/晕              辉=⿰光军, 晕=⿱日军 — both contain 军
+威/咸              威=⿵戌女, 咸=⿴戌口 — both contain 戌 structure
+塑/溯              塑=⿱朔土, 溯=⿰氵朔 — both contain 朔
+```
+
+**Relationship to phonetic families**: Many of these cross-position pairs represent the same PHONETIC component appearing as the non-standard (left or top) slot in atypical characters. In 削=⿰肖刂, 肖 is the phonetic on the LEFT and 刂 is the semantic knife radical on the right — reversed from the usual ⿰X肖 pattern. The position-agnostic index surfaces these "reversed phonetic" pairs that the MMA phonetic_family annotation also catches when present, but provides coverage for chars where the MMA has no etymology annotation.
+
 ### compound word context — IDF-weighted Jaccard over rare partners
 
 `data_similar_compound.json` characterizes each character by which compound words it appears in. Two characters are contextually similar if they are interchangeable in the same compound slots — they appear before or after the same rare partner characters.
@@ -396,6 +449,63 @@ hide (5):    匿 隐 躲 藏 潜
 ```
 
 The semantic index finds confusion that has nothing to do with visual or phonological similarity — pure conceptual confounds. Combined with `compound_only` (contextual pairs) and `visual_only` (pixel pairs), it provides a third orthogonal confusion dimension.
+
+### deep component ancestry — depth-2+ complex subcomponents
+
+`data_similar_deepcomp.json` extends the subcomp index one level deeper. Where subcomp finds chars sharing a **direct child**, deep component ancestry finds chars sharing a **grandchild** — a component that appears at depth-2 or deeper in both characters but through *different* depth-1 intermediaries.
+
+```
+subcomp finds:   骑(马+奇) and 寄(宀+奇) → share direct child 奇
+deepcomp finds:  骑(马+奇) and 荷(艹+何) → share no direct child,
+                   but 奇=⿱大可 and 何=⿰亻可 both contain 可 at depth-2
+
+subcomp finds:   颤(亶+页) and 题(是+页) → share direct child 页
+deepcomp finds:  颤(亶+页) and 堤(土+提?) → share no direct child,
+                   but 亶 and 是/提 intermediaries both contain 旦 at depth-2
+```
+
+**Why "complex" filter?** Depth-2 recursively includes everything — but simple primitives like 一, 口, 日, 月 appear at depth-2 in hundreds of characters. Including them produces false positives (鸟/蒸 both contain 一 at depth-2 but look nothing alike). The **complex filter** keeps only depth-2+ components that are themselves composed (their IDS contains at least one IDS operator), which excludes atomic pictographs like 一/口/日/木 while retaining structured components like 可(⿵𠃍口), 旦(⿱日一), 豆(⿱⿱𠄠口一).
+
+**Algorithm**:
+1. For each character: compute `all_recursive_components` (from `ids['components']`) minus `direct_children` minus the character itself = depth-2+ components.
+2. Filter to components that are (a) in the 2998-char dataset, (b) have an IDS string containing an IDS operator (are complex, not atomic).
+3. Compute IDF over these filtered depth-2+ components across all characters.
+4. Compute IDF-Jaccard. Threshold = 0.40.
+5. `deep_only` = similar chars NOT already found by IDS positional Jaccard ≥ 0.25 AND not sharing any direct child (not in subcomp).
+
+**Output fields per character:**
+
+| field | meaning |
+|---|---|
+| `deep_components` | depth-2+ complex components in dataset (the "hidden ancestors") |
+| `deep_similar` | up to 8 chars with highest deep IDF-Jaccard (≥ 0.40) |
+| `deep_only` | deep_similar chars NOT found by IDS Jaccard ≥ 0.25 and not sharing a direct child |
+| `deep_shared` | for top-4 deep_only pairs: which deep component is shared |
+
+**Dataset statistics (2998 chars, threshold=0.40):**
+- 194 chars have non-empty `deep_components` (depth-2+ complex components)
+- 160 chars have at least one `deep_similar` neighbor
+- 119 chars have at least one `deep_only` neighbor
+
+**Notable groups found:**
+
+```
+可-family (df=8):  骑/荷/歌/啊/寄/崎/椅/倚 — all contain 可 at depth-2
+  骑=马+奇(大+可),  荷=艹+何(亻+可),  歌=哥(可+可)+欠,
+  啊=口+阿(阝+可),  寄=宀+奇,  崎=山+奇
+
+旦-family (df=10): 颤/题/匙/恒/堤/垣/宣/桓/提/擅 — all contain 旦 at depth-2
+  颤=亶+页(旦 in 亶),  堤=土+提(旦 via 是),  宣=宀+亘(旦 in 亘)
+
+豆-family (df=10): 喜/凳/禧/嘉/彭/瞪/膨/鼓 — all contain 豆 at depth-2
+  喜=壴+口(豆 in 壴),  凳=登+几(豆 in 登),  嘉=壴+加
+
+品-family (df=7):  躁/癌/藻/燥/噪/澡/操 — all contain 品 at depth-2 via 喿(⿱品木)
+```
+
+**Relationship to subcomp**: Deep component pairs have no direct-child overlap, so they represent a strictly deeper structural connection. The 可-family example illustrates three separate depth-1 intermediaries (奇, 何, 哥, 阿) that all decompose to 可 — a structural "hidden ancestor" that subcomp cannot reach because subcomp only compares depth-1.
+
+This dimension is useful for mnemonics: a learner who knows that 奇, 何, 哥, and 阿 all contain 可 can link the seemingly unrelated characters 骑/荷/歌/啊 through that shared building block.
 
 ### hybrid — IDS positions + HanziDecomposer components
 
@@ -653,10 +763,11 @@ Build a pairwise Jaccard similarity graph over all characters. Run Louvain commu
 
 ### Integration of new fields into `anki_memodevice.py`
 
-Five new indexes (`pinyin`, `visual`, `radical`, `compound`, `semantic`) are not yet used in card generation. Planned additions:
+Six new indexes (`pinyin`, `visual`, `radical`, `subcomp`, `compound`, `semantic`) are not yet used in card generation. Planned additions:
 - `double_danger` — flag on the card face when a char is both visually and phonologically similar to another
 - `visual_only` — supplement `similar` display for chars like 己/已 that IDS misses
 - `cluster_only` — annotation for 氵/冫 cross-radical pairs ("⚠ also confusable with 次/决 which use 冫 instead of 氵")
+- `subcomp_only` — cross-position component sharing (削/梢 both have 肖, 案/按 both have 安)
 - `compound_only` / `left_compounds` / `right_compounds` — contextual usage examples + cross-char usage warnings
 - `semantic_only` — note when two chars share a meaning ("清 and 楚 both mean 'clear' — note the compound 清楚")
 

@@ -769,6 +769,99 @@ def build_radical_cluster_index(characters, ids_dict, threshold=0.25):
     return result
 
 
+# ── position-agnostic direct-component index ──────────────────────────────────
+
+def build_subcomp_index(characters, ids_dict, threshold=0.35):
+    """Build a similarity index using position-agnostic IDF-Jaccard over direct IDS children.
+
+    The IDS positional approach uses (slot, component) pairs like {L=氵, R=青} —
+    two chars are similar only if the SAME component appears in the SAME slot.
+    This misses cases where the same component appears in different structural positions:
+      削 = ⿰肖刂  {L=肖, R=刂}
+      梢 = ⿰木肖  {L=木, R=肖}  →  IDS positional Jaccard = 0, but both contain 肖!
+      案 = ⿱安木  {T=安, B=木}
+      按 = ⿰扌安  {L=扌, R=安}  →  IDS positional Jaccard = 0, but both contain 安!
+
+    This index uses DIRECT IDS children (top-level decomposition) without position
+    labels, weighted by IDF so rare/complex components dominate over common radicals.
+    Private-use components unique to one character appear in the denominator with
+    maximal IDF, penalizing sparse component sets and preventing false positives.
+
+    Per-character output fields:
+      direct_components   — canonical direct IDS children (as strings)
+      subcomp_similar     — up to 8 chars with highest position-agnostic IDF-Jaccard
+      subcomp_only        — subcomp_similar chars NOT found by IDS Jaccard >= 0.25
+      subcomp_shared      — for top-4 subcomp_only pairs: which component is shared
+    """
+    def _item_to_str(item):
+        if isinstance(item, str): return item
+        if isinstance(item, dict):
+            for op, children in item.items():
+                return op + ''.join(_item_to_str(c) for c in children)
+        return '?'
+
+    def _direct_children(char):
+        decomp = ids_dict.get(char, {}).get('decomposition', [])
+        result = []
+        for item in decomp:
+            if isinstance(item, dict):
+                for op, children in item.items():
+                    for child in children:
+                        s = _item_to_str(child)
+                        if s and s != char: result += [s]
+        return result
+
+    n = len(characters)
+    child_to_chars = defaultdict(set)
+    char_to_children = {}
+    for c in characters:
+        children = _direct_children(c)
+        char_to_children[c] = children
+        for ch in children:
+            child_to_chars[ch].add(c)
+    idf = {comp: math.log(n / (len(chars) + 1)) for comp, chars in child_to_chars.items()}
+
+    def _idf_jac(ca, cb):
+        sa = set(char_to_children.get(ca, []))
+        sb = set(char_to_children.get(cb, []))
+        if not sa and not sb: return 0.0
+        shared = sa & sb; union = sa | sb
+        sw = sum(idf.get(c, 0) for c in shared)
+        uw = sum(idf.get(c, 0) for c in union)
+        return sw / uw if uw > 0 else 0.0
+
+    pos_map = {c: get_pos_feats(c, ids_dict) for c in characters}
+    char_neighbors = defaultdict(list)
+    for i, a in enumerate(characters):
+        for b in characters[i+1:]:
+            s = _idf_jac(a, b)
+            if s >= threshold:
+                char_neighbors[a] += [(b, s)]
+                char_neighbors[b] += [(a, s)]
+
+    result = {}
+    for char in characters:
+        children = char_to_children.get(char, [])
+        neighbors = sorted(char_neighbors.get(char, []), key=lambda x: -x[1])
+        ids_sim = _all_ids_similar(char, pos_map, characters)
+        subcomp_sim = [b for b, _ in neighbors[:8]]
+        subcomp_only = [b for b in subcomp_sim if b not in ids_sim]
+        shared_info = {}
+        for b, s in neighbors[:4]:
+            if b in ids_sim: continue
+            shared = set(char_to_children.get(char, [])) & set(char_to_children.get(b, []))
+            # Only include shared components that are recognizable (in dataset or short)
+            shared_clean = [c for c in sorted(shared) if len(c) == 1]
+            if shared_clean: shared_info[b] = shared_clean
+        entry = {}
+        if children: entry['direct_components'] = children
+        if subcomp_sim: entry['subcomp_similar'] = subcomp_sim
+        if subcomp_only: entry['subcomp_only'] = subcomp_only
+        if shared_info: entry['subcomp_shared'] = shared_info
+        result[char] = entry
+    return result
+
+
 # ── compound word context index ───────────────────────────────────────────────
 
 def build_compound_index(characters, ids_dict, word_freq, min_freq=500, df_max=20):
@@ -907,6 +1000,99 @@ def build_semantic_index(characters, ids_dict, char_to_entry):
         sem_only = [c for c in group if c not in ids_sim]
         entry = {'gloss': gloss, 'gloss_group': group}
         if sem_only: entry['semantic_only'] = sem_only
+        result[char] = entry
+    return result
+
+
+# ── deep component ancestry index ─────────────────────────────────────────────
+
+def build_deepcomp_index(characters, ids_dict, threshold=0.4):
+    """Build a similarity index using IDF-Jaccard over DEEP (depth-2+) complex components.
+
+    The subcomp index uses DIRECT IDS children (depth-1). This extends one level
+    deeper: depth-2+ components that are themselves COMPLEX (have their own IDS
+    with decomposition operators). Simple primitives (一, 口, 日 with atomic IDS)
+    are excluded to prevent false positives from trivially common strokes.
+
+    Example: 骑(马+奇) and 荷(艹+何) share no direct child, so subcomp misses them.
+    But 奇=⿱大可 and 何=⿰亻可 both contain 可 (itself complex: ⿵𠃍口).
+    Both 骑 and 荷 therefore have 可 at depth-2, revealing hidden structural kinship.
+    Similarly: 颤/堤/宣/恒/垣 all share 旦 at depth-2 through different intermediaries.
+
+    Per-character output fields:
+      deep_components   — deep complex components (depth-2+, in dataset, complex IDS)
+      deep_similar      — up to 8 chars with highest deep IDF-Jaccard
+      deep_only         — deep_similar chars NOT found by IDS Jaccard >= 0.25 and
+                          not already sharing a direct child (not in subcomp)
+      deep_shared       — for top-4 deep_only pairs: which deep component is shared
+    """
+    IDS_OPS = set('⿰⿱⿲⿳⿴⿵⿶⿷⿸⿹⿺⿻')
+    char_set = set(characters)
+    n = len(characters)
+
+    def _is_complex(c):
+        ids_str = ids_dict.get(c, {}).get('ids', '') or ''
+        return any(op in ids_str for op in IDS_OPS)
+
+    def _direct_set(char):
+        direct = set()
+        for item in (ids_dict.get(char, {}).get('decomposition', []) or []):
+            if isinstance(item, dict):
+                for op, children in item.items():
+                    for ch in children:
+                        if isinstance(ch, str) and ch != char: direct.add(ch)
+        return direct
+
+    char_direct = {c: _direct_set(c) for c in characters}
+    char_deep = {}
+    for c in characters:
+        all_comps = set(ids_dict.get(c, {}).get('components', []) or [])
+        deep = all_comps - char_direct[c] - {c}
+        char_deep[c] = {x for x in deep if x in char_set and _is_complex(x)}
+
+    comp_to_chars = defaultdict(set)
+    for c, comps in char_deep.items():
+        for comp in comps: comp_to_chars[comp].add(c)
+    idf = {comp: math.log(n / (len(cs) + 1)) for comp, cs in comp_to_chars.items()}
+
+    def _idf_jac(a, b):
+        sa, sb = char_deep[a], char_deep[b]
+        if not sa and not sb: return 0.0
+        shared = sa & sb; union = sa | sb
+        sw = sum(idf.get(c, 0) for c in shared)
+        uw = sum(idf.get(c, 0) for c in union)
+        return sw / uw if uw > 0 else 0.0
+
+    pos_map = {c: get_pos_feats(c, ids_dict) for c in characters}
+    char_neighbors = defaultdict(list)
+    active = [c for c in characters if char_deep[c]]
+    for i, a in enumerate(active):
+        for b in active[i+1:]:
+            s = _idf_jac(a, b)
+            if s >= threshold:
+                char_neighbors[a] += [(b, s)]
+                char_neighbors[b] += [(a, s)]
+
+    result = {}
+    for char in characters:
+        deep = sorted(char_deep.get(char, set()))
+        neighbors = sorted(char_neighbors.get(char, []), key=lambda x: -x[1])
+        ids_sim = _all_ids_similar(char, pos_map, characters)
+        deep_sim = [b for b, _ in neighbors[:8]]
+        deep_only = [b for b in deep_sim
+                     if b not in ids_sim
+                     and not (char_direct.get(char, set()) & char_direct.get(b, set()))]
+        shared_info = {}
+        for b, _ in neighbors[:4]:
+            if b in ids_sim or (char_direct.get(char, set()) & char_direct.get(b, set())): continue
+            shared = sorted(char_deep.get(char, set()) & char_deep.get(b, set()))
+            shared_clean = [c for c in shared if len(c) == 1]
+            if shared_clean: shared_info[b] = shared_clean
+        entry = {}
+        if deep: entry['deep_components'] = deep
+        if deep_sim: entry['deep_similar'] = deep_sim
+        if deep_only: entry['deep_only'] = deep_only
+        if shared_info: entry['deep_shared'] = shared_info
         result[char] = entry
     return result
 
@@ -1128,6 +1314,24 @@ if __name__ == "__main__":
         json.dump(radical_idx, f, ensure_ascii=False, indent=2)
     print("\nSaved to data_similar_radical.json")
 
+    print("\nBuilding position-agnostic subcomponent index...")
+    subcomp_idx = build_subcomp_index(characters, ids_dict)
+    sc_sim_count = sum(1 for e in subcomp_idx.values() if e.get('subcomp_similar'))
+    sc_only_count = sum(1 for e in subcomp_idx.values() if e.get('subcomp_only'))
+    print(f"  chars with subcomp_similar: {sc_sim_count}")
+    print(f"  chars with subcomp_only (not IDS): {sc_only_count}")
+    print("\n── subcomp index (sample) ──")
+    for char in ['削', '梢', '案', '按', '含', '吟', '想', '湘', '箱', '哥', '呵', '塑', '溯', '威', '咸']:
+        if char not in subcomp_idx: continue
+        e = subcomp_idx[char]
+        sim = ''.join(e.get('subcomp_similar', [])[:6])
+        only = ''.join(e.get('subcomp_only', [])[:4])
+        shared = {k: v for k, v in e.get('subcomp_shared', {}).items()}
+        print(f"  {char}: sim={sim}  only={only}  shared={shared}")
+    with open('data_similar_subcomp.json', 'w', encoding='utf-8') as f:
+        json.dump(subcomp_idx, f, ensure_ascii=False, indent=2)
+    print("\nSaved to data_similar_subcomp.json")
+
     print("\nBuilding compound word context index...")
     import warnings; warnings.filterwarnings('ignore')
     import logging; logging.disable(logging.CRITICAL)
@@ -1174,3 +1378,21 @@ if __name__ == "__main__":
     with open('data_similar_semantic.json', 'w', encoding='utf-8') as f:
         json.dump(semantic_idx, f, ensure_ascii=False, indent=2)
     print("\nSaved to data_similar_semantic.json")
+
+    print("\nBuilding deep component ancestry index...")
+    deepcomp_idx = build_deepcomp_index(characters, ids_dict)
+    deep_sim_count = sum(1 for e in deepcomp_idx.values() if e.get('deep_similar'))
+    deep_only_count = sum(1 for e in deepcomp_idx.values() if e.get('deep_only'))
+    print(f"  chars with deep_similar: {deep_sim_count}")
+    print(f"  chars with deep_only (not IDS or subcomp): {deep_only_count}")
+    print("\n── deep component index (sample) ──")
+    for char in ['骑', '荷', '歌', '啊', '寄', '崎', '颤', '堤', '宣', '恒', '喜', '凳', '禧', '躁', '藻']:
+        if char not in deepcomp_idx: continue
+        e = deepcomp_idx[char]
+        dc = ''.join(e.get('deep_components', []))
+        ds = ''.join(e.get('deep_similar', [])[:6])
+        do = ''.join(e.get('deep_only', [])[:4])
+        print(f"  {char}: deep={dc}  sim={ds}  only={do}")
+    with open('data_similar_deepcomp.json', 'w', encoding='utf-8') as f:
+        json.dump(deepcomp_idx, f, ensure_ascii=False, indent=2)
+    print("\nSaved to data_similar_deepcomp.json")
