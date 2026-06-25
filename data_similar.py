@@ -68,6 +68,14 @@ def get_comps(char, ids_dict):
     return ids_comps, ids_comps | dec_comps
 
 
+def get_hybrid_component_feats(char, ids_dict):
+    """Return unpositioned IDS + HanziDecomposer components as 'C=component' features."""
+    ids_comps = set(ids_dict.get(char, {}).get('components', [])) - {char} - NOISE
+    try: dec_comps = set(decomposer.decompose(char, 2).get('components', [])) - {char} - NOISE
+    except: dec_comps = set()
+    return {f'C={comp}' for comp in ids_comps | dec_comps if len(comp) == 1 and _valid_comp(comp)}
+
+
 # ── discriminating set ────────────────────────────────────────────────────────
 
 def greedy_hitting_set(sep_sets, prefer):
@@ -265,6 +273,61 @@ def _slot_contrasts(char, similar_chars, pos_map, feat_freq):
     return result[:4]
 
 
+def _hybrid_similarity(pos_a, pos_b, comp_a, comp_b):
+    pos_j = _jaccard(pos_a, pos_b)
+    comp_j = _jaccard(comp_a, comp_b)
+    return max(pos_j, comp_j, 0.65 * pos_j + 0.35 * comp_j)
+
+
+def hybrid_fingerprint(char, pos_map, comp_map, feature_map, feat_freq, all_chars, threshold=0.25):
+    """Minimum mixed IDS/HanziDecomposer feature set separating char from hybrid neighbors."""
+    C = feature_map[char]
+    if not C: return [], [], 'empty'
+
+    threats = sorted(
+        [(D, _hybrid_similarity(pos_map[char], pos_map[D], comp_map[char], comp_map[D])) for D in all_chars
+         if D != char and _hybrid_similarity(pos_map[char], pos_map[D], comp_map[char], comp_map[D]) >= threshold],
+        key=lambda x: -x[1]
+    )
+    if not threats:
+        return [min(C, key=lambda f: feat_freq.get(f, 0))], [], 'unique'
+
+    threat_chars = [D for D, _ in threats]
+    jw = {D: j for D, j in threats}
+    seps = [C - feature_map[D] for D in threat_chars]
+    nonempty = [(threat_chars[i], s) for i, s in enumerate(seps) if s]
+
+    if not nonempty:
+        return [], [D for D, _ in threats[:8]], 'subset'
+
+    remaining = list(nonempty)
+    chosen = []
+    while remaining:
+        candidates = set().union(*(s for _, s in remaining))
+        best = max(candidates, key=lambda f: (sum(jw[D] for D, s in remaining if f in s), -feat_freq.get(f, 0), int(not f.startswith('C='))))
+        chosen += [best]
+        remaining = [(D, s) for D, s in remaining if best not in s]
+
+    similar_top = [D for D, _ in threats[:8]]
+    return chosen, similar_top, 'discriminating'
+
+
+def _component_contrasts(char, similar_chars, comp_map, feat_freq, skip_chars=None):
+    skip_chars = skip_chars or set()
+    C = {f.split('=', 1)[1] for f in comp_map[char] if f.startswith('C=')}
+    result = []
+    for D in similar_chars:
+        if D in skip_chars: continue
+        P = {f.split('=', 1)[1] for f in comp_map.get(D, set()) if f.startswith('C=')}
+        diff_c = C - P
+        diff_d = P - C
+        if diff_c and diff_d:
+            best_c = min(diff_c, key=lambda comp: feat_freq.get(f'C={comp}', 0))
+            best_d = min(diff_d, key=lambda comp: feat_freq.get(f'C={comp}', 0))
+            result += [{'vs': D, 'ours': best_c, 'theirs': best_d}]
+    return result[:4]
+
+
 def build_char_index(characters, ids_dict, threshold=0.25):
     """Build global fingerprint, joint identity, and contrastive pairs for every character.
     Returns a dict keyed by character:
@@ -287,6 +350,38 @@ def build_char_index(characters, ids_dict, threshold=0.25):
         contrasts = _slot_contrasts(char, similar, pos_map, feat_freq)
         entry = {'components': gf, 'identity': ji_type if gf_type != 'subset' else 'subset',
                  'joint': ji, 'similar': similar, 'contrasts': contrasts}
+        if gf_type == 'subset':
+            entry['ids_str'] = ids_dict.get(char, {}).get('ids', char)
+        result[char] = entry
+    return result
+
+
+def build_hybrid_char_index(characters, ids_dict, threshold=0.25):
+    """Build a global character index from IDS positional features plus HanziDecomposer components.
+    Returns a dict keyed by character:
+      components            — mixed positional/component features from the hybrid discriminating set
+      identity              — joint identity type: singleton / pair / triple / full / subset / empty
+      joint                 — mixed features forming the minimal unique conjunction
+      similar               — up to 8 most similar chars by hybrid IDS/component similarity
+      contrasts             — positional slot contrasts where IDS structure gives a same-slot difference
+      component_contrasts   — HanziDecomposer component contrasts for neighbors without a clean slot contrast
+      ids_str               — IDS string for subset characters
+    """
+    pos_map = {c: get_pos_feats(c, ids_dict) for c in characters}
+    comp_map = {c: get_hybrid_component_feats(c, ids_dict) for c in characters}
+    feature_map = {c: pos_map[c] | comp_map[c] for c in characters}
+    feat_freq = defaultdict(int)
+    for feats in feature_map.values():
+        for f in feats:
+            feat_freq[f] += 1
+    result = {}
+    for char in characters:
+        gf, similar, gf_type = hybrid_fingerprint(char, pos_map, comp_map, feature_map, feat_freq, characters, threshold)
+        ji, ji_type = joint_identity(char, feature_map, characters)
+        contrasts = _slot_contrasts(char, similar, pos_map, feat_freq)
+        component_contrasts = _component_contrasts(char, similar, comp_map, feat_freq, {ct['vs'] for ct in contrasts})
+        entry = {'components': gf, 'identity': gf_type if gf_type in {'empty', 'subset'} else ji_type,
+                 'joint': ji, 'similar': similar, 'contrasts': contrasts, 'component_contrasts': component_contrasts}
         if gf_type == 'subset':
             entry['ids_str'] = ids_dict.get(char, {}).get('ids', char)
         result[char] = entry
@@ -419,3 +514,25 @@ if __name__ == "__main__":
     with open('data_similar_global.json', 'w', encoding='utf-8') as f:
         json.dump(idx, f, ensure_ascii=False, indent=2)
     print("\nSaved to data_similar_global.json")
+
+    print("\nBuilding hybrid index (IDS positions + HanziDecomposer components)...")
+    hybrid_idx = build_hybrid_char_index(characters, ids_dict)
+    hybrid_id_dist = Counter(e['identity'] for e in hybrid_idx.values())
+    print(f"  identity distribution: {dict(hybrid_id_dist)}")
+
+    print("\n── hybrid index (sample) ──")
+    for char in sample:
+        if char not in hybrid_idx: continue
+        e = hybrid_idx[char]
+        gf = ' '.join(e['components']) if e['components'] else '—'
+        ji = ' & '.join(e['joint']) if e['joint'] else '—'
+        sim = ''.join(e['similar'][:5])
+        ct_str = '; '.join(f"{c['vs']}:{c['slot']}={c['theirs']}" for c in e.get('contrasts', [])[:3])
+        hct_str = '; '.join(f"{c['vs']}:C={c['theirs']}" for c in e.get('component_contrasts', [])[:3])
+        print(f"  {char}  disc=[{gf}]  joint=[{ji}]  type={e['identity']}  similar={sim}")
+        if ct_str: print(f"       slot contrasts: {ct_str}")
+        if hct_str: print(f"       component contrasts: {hct_str}")
+
+    with open('data_similar_hybrid.json', 'w', encoding='utf-8') as f:
+        json.dump(hybrid_idx, f, ensure_ascii=False, indent=2)
+    print("\nSaved to data_similar_hybrid.json")

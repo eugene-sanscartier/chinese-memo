@@ -4,7 +4,7 @@
 
 Characters that share visual components are easy to confuse during recall. This module identifies those groups and, for each character, computes the positional component features that best identify it among all visually similar characters. Those features surface on the question side of an Anki card.
 
-Running `data_similar.py` produces **four** output files:
+Running `data_similar.py` produces **five** output files:
 
 | file | algorithm | format | use case |
 |---|---|---|---|
@@ -12,6 +12,7 @@ Running `data_similar.py` produces **four** output files:
 | `data_similar_useful.json` | coverage × rarity IDF, group-relative | grouped list | single memorable anchor |
 | `data_similar_pos.json` | min hitting set, IDS positional, group-relative | grouped list | tells WHERE (left/right/top/…) |
 | `data_similar_global.json` | global fingerprint + joint identity, char-indexed | flat dict | **recommended for Anki** — group-free, globally consistent |
+| `data_similar_hybrid.json` | global fingerprint using IDS positions + HanziDecomposer components | flat dict | experimental global index that can use both `R=皮` and `C=扌` style cues |
 
 ---
 
@@ -118,6 +119,44 @@ Limitation: only top-level IDS components — sub-stroke connections (艮 in bot
 | `ids_str` | IDS string for subset chars |
 
 `components` and `joint` contain the same features. `contrasts` is the qualitatively new field: for each near-neighbor, it names the **specific slot where they differ** — "间 has O=日, where 问 has O=口, 闻 has O=耳." This frames identification by direct contrast rather than as an abstract feature list.
+
+### hybrid — IDS positions + HanziDecomposer components
+
+`data_similar_hybrid.json` keeps the same flat, char-indexed shape as `data_similar_global.json`, but expands each character's feature set:
+
+```
+IDS positional leaves:        R=皮, L=扌, O=日
+HanziDecomposer components:   C=皮, C=扌, C=门
+```
+
+Neighbor search uses the strongest of IDS-position Jaccard and HanziDecomposer-component Jaccard, so characters can become neighbors even when one representation misses the visual relationship. The discriminating set is then selected from the union of both feature views. Positional features are preferred when they cover the same threats, but `C=...` features are allowed when HanziDecomposer gives a better global cue.
+
+The hybrid output adds `component_contrasts` beside the existing slot `contrasts`:
+
+```json
+{
+  "披": {
+    "components": ["R=皮", "L=扌"],
+    "identity": "pair",
+    "joint": ["C=扌", "C=皮"],
+    "similar": ["摇", "疲", "彼", "被", "破"],
+    "contrasts": [
+      {"vs": "彼", "slot": "L", "ours": "扌", "theirs": "彳"},
+      {"vs": "被", "slot": "L", "ours": "扌", "theirs": "衤"},
+      {"vs": "破", "slot": "L", "ours": "扌", "theirs": "石"}
+    ],
+    "component_contrasts": [
+      {"vs": "摇", "ours": "皮", "theirs": "缶"},
+      {"vs": "疲", "ours": "扌", "theirs": "疒"},
+      {"vs": "坡", "ours": "扌", "theirs": "土"}
+    ]
+  }
+}
+```
+
+This method is experimental because component-only similarity can also over-connect broad families. It is most useful for checking whether the IDS-only global index missed a helpful decomposer cue.
+
+Hybrid `identity` can also be `empty` when both IDS positional leaves and HanziDecomposer level-2 components are empty after noise filtering.
 
 ---
 
