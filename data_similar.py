@@ -6,7 +6,13 @@ from hanzipy.decomposer import HanziDecomposer
 
 decomposer = HanziDecomposer()
 
-NOISE = set('一丨丶丿乙亅㇆㇉㇠㇇㇒㇗㇈㇏㇖㇗𠂇𠂉⺁⻖⻌⻏⺼⺙⺮⺈⺌⻊⺊⺹⻎') | {'No glyph available'}
+NOISE = set('一丨丶丿乙亅㇆㇉㇠㇇㇒㇗㇈㇏㇖㇗𠂇𠂉⺁⺙⺮⺈⺌⻊⺊⺹⻎') | {'No glyph available'}
+# Radical variant → canonical form.  Applied before NOISE check in _pos_leaves so that
+# IDS trees using variant radicals (⻖=left-ear, ⻏=right-ear, ⺼=meat, ⻌=walk) produce
+# the same positional features as trees written with the canonical form.
+# Without this, 院(⿰⻖完) → {R=完} only (⻖ filtered), making it a "subset" of any
+# char that also has R=完.  With it: 院 → {L=阝, R=完}, correctly discriminated.
+_RADICAL_NORM = {'⻖': '阝', '⻏': '阝', '⺼': '月', '⻌': '辶'}
 
 MIN_GROUP = 3
 MAX_COMP_FREQ = 25
@@ -54,8 +60,9 @@ def _pos_leaves(tree, path=''):
     """Recursively extract 'pos=component' strings from IDS tree leaves (no operators)."""
     if tree is None: return set()
     if isinstance(tree, str):
-        if tree in NOISE or not _valid_comp(tree): return set()
-        return {f'{path}={tree}' if path else tree}
+        comp = _RADICAL_NORM.get(tree, tree)
+        if comp in NOISE or not _valid_comp(comp): return set()
+        return {f'{path}={comp}' if path else comp}
     op, children = tree
     names = _SLOTS.get(op, [str(i) for i in range(len(children))])
     feats = set()
@@ -283,6 +290,16 @@ def _slot_contrasts(char, similar_chars, pos_map, feat_freq):
     return result[:4]
 
 
+def _hd2_subcomps(comp):
+    """Return sorted list of HD level-2 sub-components of comp (excluding comp itself and NOISE)."""
+    try:
+        r = decomposer.decompose(comp, 2)
+        if r is None: return []
+        return sorted(c for c in r.get('components', []) if c and c != comp and c not in NOISE and _valid_comp(c))
+    except Exception:
+        return []
+
+
 def _feat_salience_score(feat, feat_freq, n_chars):
     """salience(slot) × rarity(feat) — used to sort fingerprint features for card display.
     Salience approximates visual area fraction; rarity = 1 - freq/n. Depth-nested slots
@@ -291,38 +308,36 @@ def _feat_salience_score(feat, feat_freq, n_chars):
     slot_path = feat.split('=')[0]
     top_slot = slot_path.split('.')[0]
     sal = 0.5
-    for op, slot_map in _SLOT_SALIENCE.items():
+    for _, slot_map in _SLOT_SALIENCE.items():
         if top_slot in slot_map:
             sal = slot_map[top_slot]; break
     sal *= 0.7 ** slot_path.count('.')
     return sal * (1.0 - feat_freq.get(feat, 0) / n_chars)
 
 
-def _build_phonetic_families(characters, ids_dict):
-    """For simple ⿰(L)(R) chars where both L and R are single components,
-    R is the phonetic (声旁). Build and return a dict:
-      char → (phonetic_component, sorted_sibling_chars_in_dataset)
-    Only chars with ≥2 siblings (family size ≥ 3) are included."""
-    char_to_phonetic = {}
+def _build_phonetic_families_mma(characters, mma_dict):
+    """Build phonetic families from MMA etymology annotation (covers ⿰, ⿱, ⿸, etc.).
+    Returns dict: char → (phonetic, semantic, sem_hint, [{char, semantic, hint}...]) for all
+    chars with ≥1 sibling sharing the same phonetic in the dataset."""
+    ch_ph, ch_sem, ch_hint = {}, {}, {}
     for char in characters:
-        ids_str = ids_dict.get(char, {}).get('ids', '')
-        if not ids_str or ids_str[0] != '⿰': continue
-        tree = _parse_ids(ids_str)
-        if not isinstance(tree, tuple): continue
-        op, children = tree
-        if op != '⿰' or len(children) != 2: continue
-        L, R = children
-        if not (isinstance(L, str) and isinstance(R, str)): continue
-        if not (_valid_comp(L) and _valid_comp(R)) or L in NOISE or R in NOISE: continue
-        char_to_phonetic[char] = R
-    phonetic_to_chars = defaultdict(list)
-    for char, ph in char_to_phonetic.items():
-        phonetic_to_chars[ph] += [char]
+        e = (mma_dict.get(char, {}).get('etymology') or {})
+        if e.get('type') != 'pictophonetic': continue
+        ph = e.get('phonetic'); sem = e.get('semantic'); hint = e.get('hint')
+        if ph: ph = _RADICAL_NORM.get(ph, ph)
+        if sem: sem = _RADICAL_NORM.get(sem, sem)
+        if ph: ch_ph[char] = ph
+        if sem: ch_sem[char] = sem
+        if hint: ch_hint[char] = hint
+    ph_to_chars = defaultdict(list)
+    for char, ph in ch_ph.items():
+        ph_to_chars[ph] += [char]
     result = {}
-    for char, ph in char_to_phonetic.items():
-        siblings = [c for c in phonetic_to_chars[ph] if c != char]
-        if len(siblings) >= 2:
-            result[char] = (ph, siblings)
+    for char, ph in ch_ph.items():
+        siblings = [d for d in ph_to_chars[ph] if d != char]
+        if siblings:
+            family = [{'char': d, 'semantic': ch_sem.get(d, '?'), 'hint': ch_hint.get(d, '?')} for d in siblings]
+            result[char] = (ph, ch_sem.get(char), ch_hint.get(char), family)
     return result
 
 
@@ -381,16 +396,23 @@ def _component_contrasts(char, similar_chars, comp_map, feat_freq, skip_chars=No
     return result[:4]
 
 
-def build_char_index(characters, ids_dict, threshold=0.25):
+def build_char_index(characters, ids_dict, mma_dict=None, char_dict=None, threshold=0.25):
     """Build global fingerprint, joint identity, and contrastive pairs for every character.
     Returns a dict keyed by character:
       components        — pos-features from global discriminating set, salience-reranked
-      identity          — joint identity type: singleton / pair / triple / full / subset
+      identity          — singleton / pair / triple / full / subset / stroke_count
       joint             — pos-features forming the minimal unique conjunction
       similar           — up to 8 most similar chars (Jaccard >= threshold)
       contrasts         — slot contrasts vs nearest lookalikes: [{vs, slot, ours, theirs}]
-      phonetic          — phonetic component (声旁) for simple ⿰(L)(R) chars, else absent
-      phonetic_siblings — other chars in dataset sharing the same phonetic component
+      component_hints   — HD L2 breakdown for each rare component: {'R=夌': ['八','土','夂']}
+      stroke_count      — total stroke count (from char_dict)
+      hsk_level         — HSK level 1-7 if in HSK (from char_dict statistics)
+      frequency_rank    — corpus frequency rank (from char_dict statistics)
+      definition        — short English gloss (from char_dict)
+      etymology         — {type, phonetic, semantic, hint} for pictophonetic chars, or
+                          {type, story} for ideographic/pictographic chars (from mma_dict)
+      phonetic          — phonetic component from MMA etymology (broader than IDS-inferred)
+      phonetic_family   — [{char, semantic, hint}] for all dataset chars sharing this phonetic
       ids_str           — IDS string for subset characters
     """
     pos_map = {c: get_pos_feats(c, ids_dict) for c in characters}
@@ -399,19 +421,56 @@ def build_char_index(characters, ids_dict, threshold=0.25):
         for f in feats:
             feat_freq[f] += 1
     n = len(characters)
-    phonetic_families = _build_phonetic_families(characters, ids_dict)
+    phonetic_families = _build_phonetic_families_mma(characters, mma_dict) if mma_dict else {}
     result = {}
     for char in characters:
         gf, similar, gf_type = global_fingerprint(char, pos_map, characters, threshold)
         ji, ji_type = joint_identity(char, pos_map, characters)
         contrasts = _slot_contrasts(char, similar, pos_map, feat_freq)
         gf_sorted = sorted(gf, key=lambda f: _feat_salience_score(f, feat_freq, n), reverse=True)
-        entry = {'components': gf_sorted, 'identity': ji_type if gf_type != 'subset' else 'subset',
-                 'joint': ji, 'similar': similar, 'contrasts': contrasts}
+        hints = {}
+        for feat in gf_sorted:
+            if '=' not in feat: continue
+            comp = feat.split('=', 1)[1]
+            comp_count = sum(1 for f2 in feat_freq if f2.endswith(f'={comp}'))
+            if comp_count <= 5:
+                subs = _hd2_subcomps(comp)
+                if subs:
+                    hints[feat] = subs
+        identity = ji_type if gf_type != 'subset' else 'subset'
+        entry = {'components': gf_sorted, 'identity': identity, 'joint': ji, 'similar': similar, 'contrasts': contrasts}
+        if hints:
+            entry['component_hints'] = hints
+        # MMA etymology: type + semantic/phonetic roles + English hint
+        if mma_dict:
+            mma_e = (mma_dict.get(char, {}).get('etymology') or {})
+            etype = mma_e.get('type')
+            if etype == 'pictophonetic':
+                entry['etymology'] = {'type': 'pictophonetic', 'phonetic': mma_e.get('phonetic'), 'semantic': mma_e.get('semantic'), 'hint': mma_e.get('hint')}
+            elif etype in ('ideographic', 'pictographic') and mma_e.get('hint'):
+                entry['etymology'] = {'type': etype, 'story': mma_e['hint']}
+        # MMA-sourced phonetic family (replaces IDS-inferred, covers ⿱/⿸/⿺ too)
         if char in phonetic_families:
-            ph, siblings = phonetic_families[char]
+            ph, _, _, family = phonetic_families[char]
             entry['phonetic'] = ph
-            entry['phonetic_siblings'] = siblings
+            entry['phonetic_family'] = family
+        # char_dict metadata: stroke count, HSK level, frequency rank, short gloss
+        if char_dict:
+            cd = char_dict.get(char, {})
+            sc = cd.get('strokeCount')
+            if sc: entry['stroke_count'] = sc
+            stats = cd.get('statistics') or {}
+            hsk = stats.get('hskLevel')
+            if hsk: entry['hsk_level'] = hsk
+            rank = stats.get('bookCharRank')
+            if rank: entry['frequency_rank'] = rank
+            gloss = cd.get('gloss', '')
+            if gloss: entry['definition'] = gloss
+            # stroke_count rescue: subset chars whose stroke count differs from all similar chars
+            if identity == 'subset' and sc:
+                same_sc = [s for s in similar if (char_dict.get(s) or {}).get('strokeCount', sc) == sc]
+                if not same_sc:
+                    entry['identity'] = 'stroke_count'
         if gf_type == 'subset':
             entry['ids_str'] = ids_dict.get(char, {}).get('ids', char)
         result[char] = entry
@@ -552,8 +611,17 @@ if __name__ == "__main__":
             json.dump(groups, f, ensure_ascii=False, indent=2)
         print(f"Saved to {filenames[mode]}")
 
+    print("\nLoading MMA and char dictionaries...")
+    mma_lines = open('dictionary_makemeahanzi.txt', encoding='utf-8').readlines()
+    mma_dict = {d['character']: d for d in (json.loads(l) for l in mma_lines) if d.get('character')}
+    char_dict = {}
+    for line in open('dictionary_char.jsonl', encoding='utf-8'):
+        d = json.loads(line)
+        if d.get('char'): char_dict[d['char']] = d
+    print(f"  MMA: {len(mma_dict)} entries, char_dict: {len(char_dict)} entries")
+
     print("\nBuilding global index (fingerprint + joint identity)...")
-    idx = build_char_index(characters, ids_dict)
+    idx = build_char_index(characters, ids_dict, mma_dict=mma_dict, char_dict=char_dict)
 
     # Stats
     from collections import Counter
@@ -570,8 +638,12 @@ if __name__ == "__main__":
         ji = ' & '.join(e['joint']) if e['joint'] else '—'
         sim = ''.join(e['similar'][:5])
         ct_str = '; '.join(f"{c['vs']}:{c['slot']}={c['theirs']}" for c in e.get('contrasts', [])[:3])
-        ph_str = f"  phonetic={e['phonetic']} siblings={''.join(e['phonetic_siblings'][:6])}" if 'phonetic' in e else ''
-        print(f"  {char}  disc=[{gf}]  joint=[{ji}]  type={e['identity']}  similar={sim}{ph_str}")
+        ph_fam = e.get('phonetic_family', [])
+        ph_str = f"  phonetic={e['phonetic']} family={''.join(m['char'] for m in ph_fam[:6])}" if 'phonetic' in e else ''
+        etym = e.get('etymology', {})
+        etym_str = f"  [{etym.get('type','?')}] {etym.get('hint','')}({etym.get('semantic','')})→{etym.get('phonetic','')}" if etym else ''
+        sc_str = f"  sc={e.get('stroke_count','')} hsk={e.get('hsk_level','')}"
+        print(f"  {char}  disc=[{gf}]  joint=[{ji}]  type={e['identity']}  similar={sim}{ph_str}{etym_str}{sc_str}")
         if ct_str: print(f"       contrasts: {ct_str}")
 
     with open('data_similar_global.json', 'w', encoding='utf-8') as f:

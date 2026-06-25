@@ -69,8 +69,9 @@ Limitation: only top-level IDS components — sub-stroke connections (艮 in bot
 
 **Dataset statistics (2998 characters):**
 - singleton (44%): one pos-feature uniquely identifies the character
-- pair (49%): exactly two features jointly needed
-- subset (5%): character's features are a strict subset of some other character's — no positive discriminator
+- pair (51%): exactly two features jointly needed
+- stroke_count (2%): IDS features are a subset of another char's, but stroke count alone distinguishes
+- subset (1%): no positive discriminator (IDS features AND stroke count ambiguous)
 - full (2%): entire feature set needed (very complex characters)
 
 **Output format** — flat dict keyed by character:
@@ -97,8 +98,19 @@ Limitation: only top-level IDS components — sub-stroke connections (艮 in bot
       {"vs": "靖", "slot": "L", "ours": "氵", "theirs": "立"},
       {"vs": "睛", "slot": "L", "ours": "氵", "theirs": "目"}
     ],
-    "phonetic":          "青",
-    "phonetic_siblings": ["精", "靖", "睛", "猜", "晴", "情", "请", "倩"]
+    "stroke_count": 11,
+    "hsk_level": 6,
+    "frequency_rank": 335,
+    "definition": "clear",
+    "etymology": {"type": "pictophonetic", "phonetic": "青", "semantic": "氵", "hint": "water"},
+    "phonetic": "青",
+    "phonetic_family": [
+      {"char": "精", "semantic": "米", "hint": "grain"},
+      {"char": "睛", "semantic": "目", "hint": "eye"},
+      {"char": "晴", "semantic": "日", "hint": "sun"},
+      {"char": "情", "semantic": "忄", "hint": "heart"},
+      {"char": "请", "semantic": "讠", "hint": "speech"}
+    ]
   },
   "常": {
     "components": ["B=巾", "T=𫩠"],
@@ -108,7 +120,39 @@ Limitation: only top-level IDS components — sub-stroke connections (艮 in bot
     "contrasts":  [
       {"vs": "党", "slot": "B", "ours": "巾", "theirs": "儿"},
       {"vs": "掌", "slot": "B", "ours": "巾", "theirs": "手"}
+    ],
+    "stroke_count": 11,
+    "hsk_level": 1,
+    "definition": "common",
+    "etymology": {"type": "pictophonetic", "phonetic": "尚", "semantic": "巾", "hint": "cloth"},
+    "phonetic": "尚",
+    "phonetic_family": [
+      {"char": "党", "semantic": "儿", "hint": "elder brother"},
+      {"char": "掌", "semantic": "手", "hint": "hand"},
+      {"char": "堂", "semantic": "土", "hint": "earth"}
     ]
+  },
+  "当": {
+    "components": [],
+    "identity":   "stroke_count",
+    "joint":      [],
+    "similar":    ["雪"],
+    "contrasts":  [],
+    "stroke_count": 6,
+    "hsk_level": 2,
+    "definition": "to match",
+    "ids_str":    "⿱⺌彐"
+  },
+  "间": {
+    "components": ["O=日", "T=门"],
+    "identity":   "pair",
+    "joint":      ["O=日", "T=门"],
+    "similar":    ["问", "闷", "闭", "闪", "闻"],
+    "contrasts":  [{"vs": "问", "slot": "O", "ours": "日", "theirs": "口"}],
+    "stroke_count": 7,
+    "hsk_level": 1,
+    "definition": "space",
+    "etymology": {"type": "ideographic", "story": "The sun 日 shining through a doorway 门"}
   },
   "度": {
     "components": [],
@@ -116,6 +160,7 @@ Limitation: only top-level IDS components — sub-stroke connections (艮 in bot
     "joint":      [],
     "similar":    ["府", "底", "座", "序", "庭"],
     "contrasts":  [],
+    "stroke_count": 9,
     "ids_str":    "⿸广&CDP-8C46;"
   }
 }
@@ -124,19 +169,33 @@ Limitation: only top-level IDS components — sub-stroke connections (艮 in bot
 | field | meaning |
 |---|---|
 | `components` | pos-features from global discriminating set, **salience-reranked** (most visually prominent first) |
-| `identity` | `singleton` / `pair` / `triple` / `full` / `subset` |
+| `identity` | `singleton` / `pair` / `triple` / `full` / `stroke_count` / `subset` |
 | `joint` | the minimal unique conjunction — same features, different framing |
 | `similar` | up to 8 most confusable chars (by Jaccard, sorted by similarity) |
 | `contrasts` | contrastive slot pairs vs nearest neighbors: `[{vs, slot, ours, theirs}]` |
-| `phonetic` | phonetic component 声旁 for simple ⿰(L)(R) chars — the right component |
-| `phonetic_siblings` | all other chars in the dataset sharing this phonetic (the full phonetic family) |
-| `ids_str` | IDS string for subset chars |
+| `component_hints` | HD L2 breakdown of rare components in the discriminating set: `{"R=夌": ["八","土","夂"]}` |
+| `stroke_count` | total stroke count (from `dictionary_char.jsonl`) — present for all 2998 chars |
+| `hsk_level` | HSK level 1–7 if in HSK (from `dictionary_char.jsonl` statistics) |
+| `frequency_rank` | corpus frequency rank (lower = more common; from `dictionary_char.jsonl`) |
+| `definition` | short English gloss (from `dictionary_char.jsonl`) |
+| `etymology` | for pictophonetic chars: `{type, phonetic, semantic, hint}` where `hint` is the English keyword for the semantic component ("water", "eye", …); for ideographic/pictographic chars: `{type, story}` where `story` is a visual composition description (from `dictionary_makemeahanzi.txt`) |
+| `phonetic` | phonetic component from MMA etymology — covers ⿰, ⿱, ⿸, ⿺, etc. (broader than previous IDS-inferred) |
+| `phonetic_family` | `[{char, semantic, hint}]` — all dataset chars sharing this phonetic, each annotated with their semantic component and English hint; the semantic hint is the discriminator within the family |
+| `ids_str` | IDS string for subset/stroke_count chars |
 
 **Salience reranking**: `components` are sorted by `salience(slot) × rarity(feature)`. For ⿰ chars, `R=` (60% visual area) always comes before `L=` (40%). For ⿱ chars, `B=` (55%) comes before `T=` (45%). 18.6% of two-feature chars are reordered vs. pure-rarity ordering — these are the chars where the rarest feature is not the most visually prominent one.
 
-**Phonetic family**: ~80% of Chinese characters are 形声字 (semantic-phonetic compounds). For ⿰ chars, the right component is the phonetic (声旁); the left is the semantic radical. 903 chars have `phonetic` / `phonetic_siblings`. Phonetic family members (清情请晴精靖睛猜倩 all sharing 青) are the highest-priority real-world confusion cluster — they look nearly identical and may sound similar. The `contrasts` field captures the slot-level differences; `phonetic_siblings` gives the full family for a card hint: "phonetic series: 青 → 清/情/请/晴/精/靖/睛".
+**Radical normalization** (`_RADICAL_NORM`): The IDS database uses variant radical forms (⻖, ⻏, ⺼, ⻌) that are distinct Unicode codepoints from their canonical equivalents (阝, 阝, 月, 辶). Previously these were silently filtered as noise, making any character using them a "subset" character with no discriminating feature. Now they are mapped to their canonical form before feature extraction. Result: 69 chars moved from `subset→pair` identity — characters like 院(⿰⻖完)→{L=阝, R=完}, 脸(⿰⺼佥)→{L=月, R=佥}, 这(⿺⻌文)→{BL=辶, O=文} now have proper discriminating features.
+
+**Component hints** (`component_hints`): For rare components (appearing in ≤5 slot-positions globally), the HD level-2 sub-decomposition is stored as an annotation. 1703 chars have at least one hint. Intended for card display — when the discriminating component is obscure, show its sub-components as a visual memory aid: 棱 has `R=夌` with hint `["八","土","夂"]`; card shows "夌 (=土+八+夂) on the right".
+
+**Phonetic family (MMA-sourced)**: ~80% of Chinese characters are 形声字 (semantic-phonetic compounds). 1403 chars have `phonetic` / `phonetic_family`, sourced from `dictionary_makemeahanzi.txt` etymology annotations. This covers all structure types (⿰, ⿱, ⿸, ⿺, …) rather than just ⿰. Previous IDS-inferred approach only covered 984 chars (⿰ only); MMA annotation covers 1403. The semantic hint within `phonetic_family` is the primary discriminator within a family: all 青-family chars look similar; the discriminating question is always "which semantic radical (水/日/心/言/目/米…) is present?". Card use: "phonetic 青: 清(water), 晴(sun), 情(heart), 请(speech), 睛(eye), 精(grain)".
 
 `contrasts` frames identification by direct contrast: "清 has L=氵, where 精 has L=米, 靖 has L=立, 睛 has L=目."
+
+**Etymology annotation**: 2787/2998 chars have `etymology` from MMA. For pictophonetic chars (1840), this gives `semantic` + `hint` (the English label for what the semantic radical represents) + `phonetic`. The `hint` enables a ready-made mnemonic: "water (氵) + 青 → 清 (clean)". For ideographic chars (812), `story` is a human-authored visual composition description: "The sun 日 shining through a doorway 门" (间). For pictographic chars (135), `story` describes the original pictogram. These are directly displayable as card scaffolds.
+
+**Stroke count rescue**: 50 of the previous 82 "subset" chars (whose IDS feature set was a strict subset of some other char's) have a unique stroke count among their confusion neighbors — they are now classified as `stroke_count` identity. The remaining 32 true subset chars share both IDS features and stroke count with at least one neighbor. Card display for `stroke_count` chars: show stroke count as the distinguishing cue. All 2998 chars have `stroke_count` from `dictionary_char.jsonl`.
 
 ### hybrid — IDS positions + HanziDecomposer components
 
@@ -350,6 +409,32 @@ For simple ⿰(L)(R) characters, R is the phonetic component (声旁) that gives
 
 ### Salience-reranked fingerprint — **implemented in global index**
 Features are now sorted by `salience(slot) × rarity(feature)` instead of pure rarity. Visual salience approximates the fraction of the character's area occupied by each slot (R=60%, L=40%, B=55%, T=45% for ⿰/⿱). 272/1460 two-feature chars (18.6%) have their ordering changed. Effect: for ⿰ chars the phonetic/right component is listed first; for ⿱ chars the bottom component leads. Cards show the most visually prominent discriminator first.
+
+### Radical normalization (⻖/⻏/⺼/⻌) — **implemented in _pos_leaves**
+Root cause of 151 "subset" chars: the IDS database uses variant radical forms (⻖, ⻏, ⺼, ⻌) that don't match canonical forms (阝, 阝, 月, 辶). Previously treated as noise and silently dropped, causing any ⻖/⺼/⻌-radical character to appear as a subset. Now mapped to canonical form via `_RADICAL_NORM` before the noise check. 69 chars rescued from subset identity.
+
+### MMA etymology annotation — **implemented in global index**
+`dictionary_makemeahanzi.txt` provides expert-annotated etymology for 2787/2998 chars:
+- **Pictophonetic** (1840 chars): explicit `phonetic` + `semantic` + English `hint`. More accurate than IDS inference (IDS-inferred ⿰ phonetic was wrong in 143/774 cases where the LEFT component is the phonetic). Covers all structure types, not just ⿰.
+- **Ideographic** (812 chars): `story` gives a visual composition mnemonic (e.g., "A person 儿 carrying a torch 火" for 光).
+- **Pictographic** (135 chars): `story` describes the original pictogram.
+
+Phonetic family experiment: MMA-sourced families = 385 (vs 198 IDS-inferred), covering 1403 chars (vs 984). New families include ⿱-structure chars like 常/党/掌/堂/赏 (all phonetic=尚) and many ⿸/⿺ chars. For all confused pairs within a phonetic family, the semantic component (`semantic` + `hint`) is the correct discriminator.
+
+MMA features (SEM=/PHO=) tested in Jaccard computation: adding role-typed features REDUCES Jaccard scores (more features dilute the overlap ratio). Not suitable for similarity computation. Best used as direct annotation fields.
+
+### Stroke count rescue + metadata — **implemented in global index**
+`dictionary_char.jsonl` provides per-character: `strokeCount`, `statistics.hskLevel`, `statistics.bookCharRank`, `gloss`.
+
+Stroke count rescue: for the 82 subset chars (no IDS discriminating feature), 50 have unique stroke counts among their similar neighbors → identity upgraded from `subset` → `stroke_count`. Only 32 true subsets remain. Stroke count delta distribution for all confused pairs: 12.4% same count (delta=0), 22.5% delta=1, 19.0% delta=2 — most confused chars DO differ in stroke count, but delta=1 is barely noticeable; delta≥3 is a reliable visual cue.
+
+HSK level and frequency rank enable confusion prioritization: HSK-1 chars with high-Jaccard neighbors are the most important to fix. Not yet integrated into the `similar` ordering.
+
+### Positional HD-L2 (PHD2) — **component_hints implemented in global index**
+For the top-level IDS slot of each char, run HD level-2 decomposition on that slot's component to get positioned sub-features (`R⊃土`, `R⊃八`). Key finding: only 11 new confusion pairs found at threshold 0.25 in a 9800-pair sample — PHD2 doesn't substantially expand the confusion set. But it IS useful as a component annotation: chars with obscure IDS components (appearing ≤5 times) now store the HD L2 breakdown in `component_hints`. 1703 chars have at least one hint. Card display use: `棱` shows "夌(=土+八+夂) on the right."
+
+### Cross-level IDS/HD agreement
+Mean Jaccard between IDS components and HD L2 components: 0.424. Low-agreement chars (j≈0): simple chars where IDS uses private-use sub-components but HD L2 sees canonical atoms (个, 介, 仓, 余). High-agreement chars (j=1.000): clean ⿰/⿱ structures where both methods agree exactly (饮, 鸡, 魄, 鲁). Agreement score is a proxy for structural clarity — unambiguous characters have high agreement.
 
 ### Structural template (IDS skeleton)
 Replace IDS leaf components with abstract type labels. Characters sharing the same operator-sequence template share the same visual skeleton. 73 distinct templates; the enclosure operators (⿵, ⿷) have the highest intra-template Jaccard (0.21–0.24) and are already found by Jaccard similarity. For ⿰(X,X) (1534 chars), template is too coarse — most pairs share no components. Most useful as a human-readable shape descriptor, not as a new similarity detector.
