@@ -3,6 +3,7 @@ import math
 from collections import defaultdict
 from itertools import combinations
 from hanzipy.decomposer import HanziDecomposer
+import numpy
 
 decomposer = HanziDecomposer()
 
@@ -181,6 +182,12 @@ def positional_set(char, group, pos_feats, ids_dict):
 def _jaccard(a, b):
     if not a and not b: return 0.0
     return len(a & b) / len(a | b)
+
+def _all_ids_similar(char, pos_map, all_chars, threshold=0.25):
+    """Return ALL chars with IDS Jaccard >= threshold (uncapped — no top-8 limit)."""
+    C = pos_map.get(char, set())
+    if not C: return set()
+    return {D for D in all_chars if D != char and _jaccard(C, pos_map.get(D, set())) >= threshold}
 
 
 def global_fingerprint(char, pos_map, all_chars, threshold=0.25):
@@ -509,6 +516,259 @@ def build_hybrid_char_index(characters, ids_dict, threshold=0.25):
     return result
 
 
+# ── pinyin (cross-modal: visual + phonological) ───────────────────────────────
+
+_PINYIN_TONE = {'ā':'a1','á':'a2','ǎ':'a3','à':'a4','ē':'e1','é':'e2','ě':'e3','è':'e4',
+                'ī':'i1','í':'i2','ǐ':'i3','ì':'i4','ō':'o1','ó':'o2','ǒ':'o3','ò':'o4',
+                'ū':'u1','ú':'u2','ǔ':'u3','ù':'u4','ǖ':'v1','ǘ':'v2','ǚ':'v3','ǜ':'v4'}
+_PINYIN_INIT  = ['zh','ch','sh','b','p','m','f','d','t','n','l','g','k','h','j','q','x','r','z','c','s','y','w']
+
+def _parse_pinyin(py_raw):
+    """Return (initial, final, tone) for a toned pinyin string."""
+    tone = '5'; base = []
+    for ch in py_raw:
+        if ch in _PINYIN_TONE: base.append(_PINYIN_TONE[ch][0]); tone = _PINYIN_TONE[ch][1]
+        else: base.append(ch)
+    base = ''.join(base)
+    init = next((i for i in _PINYIN_INIT if base.startswith(i)), '')
+    return init, base[len(init):], tone
+
+def _pinyin_sim(pys1, pys2):
+    """Max phonological similarity across all pinyin variants: 1.0=same, 0.85=same syllable diff tone,
+    0.55=same final (rhyme), 0.25=same initial only, 0.0=unrelated."""
+    best = 0.0
+    for i1,f1,t1 in pys1:
+        for i2,f2,t2 in pys2:
+            if i1==i2 and f1==f2 and t1==t2: s=1.0
+            elif i1==i2 and f1==f2: s=0.85
+            elif f1==f2 and f1: s=0.55
+            elif i1==i2 and i1: s=0.25
+            else: s=0.0
+            best=max(best,s)
+    return best
+
+
+def build_pinyin_index(characters, ids_dict, mma_dict, threshold=0.25, ph_threshold=0.7):
+    """Build a character index that annotates visual confusions with phonological similarity.
+    Additional pinyin-specific fields per entry:
+      pinyin          — raw MMA pinyin list
+      homophones      — other dataset chars with identical pronunciation (same syllable + tone)
+      near_homophones — other dataset chars with same syllable, different tone
+      double_danger   — chars that are BOTH visual (Jaccard>=threshold) AND phonological (>=ph_threshold)
+                        confusers — the hardest pairs for learners
+    """
+    pos_map = {c: get_pos_feats(c, ids_dict) for c in characters}
+    feat_freq = defaultdict(int)
+    for feats in pos_map.values():
+        for f in feats: feat_freq[f] += 1
+    n = len(characters)
+
+    # Parse pinyin for all chars
+    char_py = {}
+    for c in characters:
+        raw = (mma_dict.get(c) or {}).get('pinyin', [])
+        if raw: char_py[c] = [_parse_pinyin(py) for py in raw if py]
+
+    # Build (initial, final) → chars lookup for fast homophone search
+    syllable_map = defaultdict(list)  # (init, final, tone) → chars
+    rhyme_map    = defaultdict(list)  # (init, final) → chars
+    for c, pys in char_py.items():
+        for tup in pys:
+            syllable_map[tup] += [c]
+            rhyme_map[(tup[0], tup[1])] += [c]
+
+    result = {}
+    for char in characters:
+        gf, similar, gf_type = global_fingerprint(char, pos_map, characters, threshold)
+        ji, ji_type = joint_identity(char, pos_map, characters)
+        contrasts = _slot_contrasts(char, similar, pos_map, feat_freq)
+        gf_sorted = sorted(gf, key=lambda f: _feat_salience_score(f, feat_freq, n), reverse=True)
+
+        entry = {'components': gf_sorted, 'identity': ji_type if gf_type != 'subset' else 'subset',
+                 'joint': ji, 'similar': similar, 'contrasts': contrasts}
+        if gf_type == 'subset': entry['ids_str'] = ids_dict.get(char, {}).get('ids', char)
+
+        pys = char_py.get(char, [])
+        if pys:
+            entry['pinyin'] = (mma_dict.get(char) or {}).get('pinyin', [])
+
+            # Homophones: same (init, final, tone) in dataset
+            homos = sorted({d for py in pys for d in syllable_map.get(py,[]) if d != char})
+            if homos: entry['homophones'] = homos
+
+            # Near-homophones: same (init, final) but different tone
+            near = sorted({d for py in pys for d in rhyme_map.get((py[0],py[1]),[])
+                           if d != char and not any(py2 == py for py2 in char_py.get(d,[]))})
+            if near: entry['near_homophones'] = near
+
+            # Double danger: visual similar AND phonologically similar
+            dd = sorted([d for d in similar if d in char_py and
+                         _pinyin_sim(pys, char_py[d]) >= ph_threshold],
+                        key=lambda d: -_pinyin_sim(pys, char_py[d]))
+            if dd: entry['double_danger'] = dd
+
+        result[char] = entry
+    return result
+
+
+# ── visual pixel similarity (HOG-like edge features) ─────────────────────────
+
+_VISUAL_FONT_PATH  = None  # set by build_visual_index before use
+_VISUAL_FONT_CACHE = {}
+_VISUAL_FEAT_CACHE = {}
+_VISUAL_SIZE       = 56
+_VISUAL_GRID       = 7    # grid cells per side (7×7 = 49 features per char)
+
+def _edge_feats(char):
+    """Return normalised edge-density feature vector for char (49-d float32)."""
+    if char in _VISUAL_FEAT_CACHE: return _VISUAL_FEAT_CACHE[char]
+    from PIL import Image, ImageDraw, ImageFont
+    if _VISUAL_FONT_PATH not in _VISUAL_FONT_CACHE:
+        _VISUAL_FONT_CACHE[_VISUAL_FONT_PATH] = ImageFont.truetype(_VISUAL_FONT_PATH, _VISUAL_SIZE - 8)
+    font = _VISUAL_FONT_CACHE[_VISUAL_FONT_PATH]
+    img  = Image.new('L', (_VISUAL_SIZE, _VISUAL_SIZE), 255)
+    ImageDraw.Draw(img).text((3, 2), char, font=font, fill=0)
+    arr  = (numpy.array(img) < 128).astype(numpy.float32)
+    gx   = numpy.diff(arr, axis=1, prepend=arr[:, :1])
+    gy   = numpy.diff(arr, axis=0, prepend=arr[:1, :])
+    mag  = numpy.sqrt(gx**2 + gy**2)
+    step = _VISUAL_SIZE // _VISUAL_GRID
+    v    = numpy.array([mag[i*step:(i+1)*step, j*step:(j+1)*step].sum()
+                        for i in range(_VISUAL_GRID) for j in range(_VISUAL_GRID)], dtype=numpy.float32)
+    n    = numpy.linalg.norm(v)
+    v    = v / (n + 1e-8)
+    _VISUAL_FEAT_CACHE[char] = v
+    return v
+
+
+def build_visual_index(characters, ids_dict, font_path, threshold=0.97, ids_threshold=0.25):
+    """Build a character index using pixel-level visual similarity (HOG-like edge features).
+    Finds confusions that IDS decomposition misses — e.g. 己/已/巳, 候/侯, 胃/肾/臂.
+    Returns a dict keyed by character:
+      similar       — up to 8 most similar chars by edge feature cosine similarity
+      visual_only   — similar chars NOT found by IDS Jaccard (novel pairs)
+      identity      — same computation as global index (IDS-based)
+      components    — IDS-based discriminating features (for card display)
+      contrasts     — IDS slot contrasts vs visual neighbors
+      edge_sim      — {char: similarity_score} for visual_similar
+    """
+    global _VISUAL_FONT_PATH
+    _VISUAL_FONT_PATH = font_path
+    _VISUAL_FEAT_CACHE.clear()
+
+    print("  Rendering characters and computing edge features...")
+    feat_mat = numpy.stack([_edge_feats(c) for c in characters])  # (N, 49)
+    sim_mat  = feat_mat @ feat_mat.T                               # (N, N) cosine similarities
+
+    pos_map  = {c: get_pos_feats(c, ids_dict) for c in characters}
+    feat_freq = defaultdict(int)
+    for feats in pos_map.values():
+        for f in feats: feat_freq[f] += 1
+    n = len(characters)
+    char_idx = {c: i for i, c in enumerate(characters)}
+
+    result = {}
+    for char in characters:
+        gf, ids_similar, gf_type = global_fingerprint(char, pos_map, characters, ids_threshold)
+        ji, ji_type = joint_identity(char, pos_map, characters)
+        ids_similar_set = _all_ids_similar(char, pos_map, characters, ids_threshold)
+
+        # Visual similar: top-k by edge sim, excluding self
+        ci   = char_idx[char]
+        sims = sim_mat[ci]
+        order = numpy.argsort(sims)[::-1]
+        visual_sim = [(characters[j], float(sims[j])) for j in order
+                      if characters[j] != char and sims[j] >= threshold][:8]
+        vis_chars  = [c for c, _ in visual_sim]
+        vis_only   = [c for c in vis_chars if c not in ids_similar_set]
+        edge_scores = {c: round(s, 4) for c, s in visual_sim}
+
+        # Contrasts vs visual neighbors (IDS-based where possible)
+        gf_sorted  = sorted(gf, key=lambda f: _feat_salience_score(f, feat_freq, n), reverse=True)
+        contrasts  = _slot_contrasts(char, vis_chars, pos_map, feat_freq)
+
+        entry = {'components': gf_sorted, 'identity': ji_type if gf_type != 'subset' else 'subset',
+                 'joint': ji, 'similar': vis_chars, 'contrasts': contrasts}
+        if vis_only:   entry['visual_only'] = vis_only
+        if edge_scores: entry['edge_sim'] = edge_scores
+        if gf_type == 'subset': entry['ids_str'] = ids_dict.get(char, {}).get('ids', char)
+        result[char] = entry
+    return result
+
+
+# ── radical cluster index (abstract visual groups) ────────────────────────────
+
+# Radicals that look visually similar mapped to a shared cluster label.
+# Only truly confusable pairs: 氵 (3-drip water left) ≈ 冫 (2-drip ice left),
+# 扌/手 (hand), 忄/心 (heart), 讠/言 (speech), 纟/糸 (thread), 钅/金 (metal).
+_RADICAL_CLUSTER = {
+    '氵': 'DRIP', '冫': 'DRIP',
+    '扌': 'HAND', '手': 'HAND',
+    '忄': 'HEART', '心': 'HEART',
+    '讠': 'SPEECH', '言': 'SPEECH',
+    '纟': 'THREAD', '糸': 'THREAD',
+    '钅': 'METAL', '金': 'METAL',
+    '艹': 'GRASS', '⺾': 'GRASS',
+    '辶': 'WALK', '彳': 'WALK',
+    '刂': 'KNIFE', '刀': 'KNIFE',
+    '阝': 'MOUND',  # already normalized from ⻖/⻏ via _RADICAL_NORM
+}
+
+def _get_cluster_feats(char, ids_dict):
+    """Positional features with clustered radicals collapsed to shared labels.
+    Returns a set containing ONLY the abstract cluster features (not the concrete form)
+    so that cross-radical pairs can be found without double-counting."""
+    pos = get_pos_feats(char, ids_dict)
+    result = set()
+    for feat in pos:
+        if '=' not in feat: result.add(feat); continue
+        slot, comp = feat.split('=', 1)
+        cluster = _RADICAL_CLUSTER.get(comp)
+        result.add(f'{slot}={cluster}' if cluster else feat)
+    return result
+
+
+def build_radical_cluster_index(characters, ids_dict, threshold=0.25):
+    """Build a character index using abstract radical clusters.
+    Visually similar radicals (氵≈冫, 扌≈手, 忄≈心, etc.) are collapsed to the same
+    cluster label before Jaccard computation, finding cross-radical confusions that the
+    concrete IDS index misses.
+    Returns a dict keyed by character:
+      components      — cluster-feature discriminating set (salience-sorted)
+      identity        — singleton / pair / triple / full / subset
+      joint           — minimal unique cluster-feature conjunction
+      similar         — up to 8 most similar chars by cluster Jaccard
+      cluster_only    — similar chars not found by concrete IDS Jaccard
+      contrasts       — slot contrasts (using cluster labels where applicable)
+    """
+    cluster_map = {c: _get_cluster_feats(c, ids_dict) for c in characters}
+    pos_map     = {c: get_pos_feats(c, ids_dict) for c in characters}
+
+    feat_freq = defaultdict(int)
+    for feats in cluster_map.values():
+        for f in feats: feat_freq[f] += 1
+    n = len(characters)
+
+    result = {}
+    for char in characters:
+        gf, similar, gf_type = global_fingerprint(char, cluster_map, characters, threshold)
+        ji, ji_type = joint_identity(char, cluster_map, characters)
+
+        # Which of these are NEW (not in concrete IDS similar)?
+        ids_similar = _all_ids_similar(char, pos_map, characters, threshold)
+        cluster_only = [d for d in similar if d not in ids_similar]
+
+        gf_sorted  = sorted(gf, key=lambda f: _feat_salience_score(f, feat_freq, n), reverse=True)
+        contrasts  = _slot_contrasts(char, similar, cluster_map, feat_freq)
+
+        entry = {'components': gf_sorted, 'identity': ji_type if gf_type != 'subset' else 'subset',
+                 'joint': ji, 'similar': similar, 'contrasts': contrasts}
+        if cluster_only: entry['cluster_only'] = cluster_only
+        if gf_type == 'subset': entry['ids_str'] = ids_dict.get(char, {}).get('ids', char)
+        result[char] = entry
+    return result
+
+
 # ── group finding ─────────────────────────────────────────────────────────────
 
 def find_similar_chars(characters, ids_dict, mode='disc'):
@@ -671,3 +931,57 @@ if __name__ == "__main__":
     with open('data_similar_hybrid.json', 'w', encoding='utf-8') as f:
         json.dump(hybrid_idx, f, ensure_ascii=False, indent=2)
     print("\nSaved to data_similar_hybrid.json")
+
+    print("\nBuilding pinyin cross-modal index...")
+    pinyin_idx = build_pinyin_index(characters, ids_dict, mma_dict)
+    dd_count = sum(1 for e in pinyin_idx.values() if e.get('double_danger'))
+    homo_count = sum(1 for e in pinyin_idx.values() if e.get('homophones'))
+    print(f"  double_danger chars: {dd_count}, chars with homophones: {homo_count}")
+    print("\n── pinyin index (sample) ──")
+    for char in ['清','情','晴','胃','畏','候','侯','己','已','常']:
+        if char not in pinyin_idx: continue
+        e = pinyin_idx[char]
+        py_str = ','.join((mma_dict.get(char) or {}).get('pinyin', []))
+        dd_str = ''.join(e.get('double_danger', []))
+        homo_str = ''.join(e.get('homophones', []))
+        near_str = ''.join(e.get('near_homophones', [])[:4])
+        print(f"  {char}[{py_str}]  double_danger={dd_str}  homophones={homo_str}  near={near_str}")
+    with open('data_similar_pinyin.json', 'w', encoding='utf-8') as f:
+        json.dump(pinyin_idx, f, ensure_ascii=False, indent=2)
+    print("\nSaved to data_similar_pinyin.json")
+
+    print("\nBuilding visual pixel index (edge features)...")
+    font_path = '_LXGWWenKaiGBLite-Regular.ttf'
+    visual_idx = build_visual_index(characters, ids_dict, font_path)
+    vis_only_count = sum(1 for e in visual_idx.values() if e.get('visual_only'))
+    print(f"  chars with visual-only (non-IDS) similar chars: {vis_only_count}")
+    print("\n── visual index (sample) ──")
+    for char in ['清','情','胃','畏','候','侯','己','已','巳']:
+        if char not in visual_idx: continue
+        e = visual_idx[char]
+        sim_str = ''.join(e.get('similar', [])[:6])
+        vo_str = ''.join(e.get('visual_only', []))
+        es_str = ' '.join(f"{c}:{s}" for c,s in list(e.get('edge_sim', {}).items())[:4])
+        print(f"  {char}  similar={sim_str}  visual_only={vo_str}")
+        if es_str: print(f"       edge_sims: {es_str}")
+    with open('data_similar_visual.json', 'w', encoding='utf-8') as f:
+        json.dump(visual_idx, f, ensure_ascii=False, indent=2)
+    print("\nSaved to data_similar_visual.json")
+
+    print("\nBuilding radical cluster index...")
+    radical_idx = build_radical_cluster_index(characters, ids_dict)
+    cluster_only_count = sum(1 for e in radical_idx.values() if e.get('cluster_only'))
+    print(f"  chars with cluster-only (cross-radical) new similar chars: {cluster_only_count}")
+    id_dist_r = Counter(e['identity'] for e in radical_idx.values())
+    print(f"  identity distribution: {dict(id_dist_r)}")
+    print("\n── radical cluster index (sample) ──")
+    for char in ['清','冷','情','快','忆','说','话','银','铜']:
+        if char not in radical_idx: continue
+        e = radical_idx[char]
+        sim_str = ''.join(e.get('similar', [])[:6])
+        co_str = ''.join(e.get('cluster_only', []))
+        gf = ' '.join(e['components']) if e['components'] else '—'
+        print(f"  {char}  disc=[{gf}]  similar={sim_str}  cluster_only={co_str}")
+    with open('data_similar_radical.json', 'w', encoding='utf-8') as f:
+        json.dump(radical_idx, f, ensure_ascii=False, indent=2)
+    print("\nSaved to data_similar_radical.json")

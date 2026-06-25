@@ -4,7 +4,7 @@
 
 Characters that share visual components are easy to confuse during recall. This module identifies those groups and, for each character, computes the positional component features that best identify it among all visually similar characters. Those features surface on the question side of an Anki card.
 
-Running `data_similar.py` produces **five** output files:
+Running `data_similar.py` produces **eight** output files:
 
 | file | algorithm | format | use case |
 |---|---|---|---|
@@ -13,6 +13,9 @@ Running `data_similar.py` produces **five** output files:
 | `data_similar_pos.json` | min hitting set, IDS positional, group-relative | grouped list | tells WHERE (left/right/top/…) |
 | `data_similar_global.json` | global fingerprint + joint identity, char-indexed | flat dict | **recommended for Anki** — group-free, globally consistent |
 | `data_similar_hybrid.json` | global fingerprint using IDS positions + HanziDecomposer components | flat dict | experimental global index that can use both `R=皮` and `C=扌` style cues |
+| `data_similar_pinyin.json` | IDS visual + MMA pinyin phonological cross-modal | flat dict | annotates visual confusions with phonological distance; surfaces "double danger" pairs |
+| `data_similar_visual.json` | pixel-level HOG edge features, cosine similarity | flat dict | catches purely visual pairs IDS misses: 己/已, 乌/鸟, 干/千, 义/叉/又 |
+| `data_similar_radical.json` | abstract radical clusters (氵/冫→DRIP, 扌/手→HAND, …) | flat dict | surfaces cross-radical confusions invisible to concrete IDS Jaccard |
 
 ---
 
@@ -196,6 +199,119 @@ Limitation: only top-level IDS components — sub-stroke connections (艮 in bot
 **Etymology annotation**: 2787/2998 chars have `etymology` from MMA. For pictophonetic chars (1840), this gives `semantic` + `hint` (the English label for what the semantic radical represents) + `phonetic`. The `hint` enables a ready-made mnemonic: "water (氵) + 青 → 清 (clean)". For ideographic chars (812), `story` is a human-authored visual composition description: "The sun 日 shining through a doorway 门" (间). For pictographic chars (135), `story` describes the original pictogram. These are directly displayable as card scaffolds.
 
 **Stroke count rescue**: 50 of the previous 82 "subset" chars (whose IDS feature set was a strict subset of some other char's) have a unique stroke count among their confusion neighbors — they are now classified as `stroke_count` identity. The remaining 32 true subset chars share both IDS features and stroke count with at least one neighbor. Card display for `stroke_count` chars: show stroke count as the distinguishing cue. All 2998 chars have `stroke_count` from `dictionary_char.jsonl`.
+
+### pinyin cross-modal — visual + phonological overlap
+
+`data_similar_pinyin.json` extends the global index with phonological data from `dictionary_makemeahanzi.txt`. For each character it parses the `pinyin` field into `(initial, final, tone)` triples and adds four new fields:
+
+| field | meaning |
+|---|---|
+| `pinyin` | raw MMA pinyin list |
+| `homophones` | other dataset chars with identical pronunciation (same initial + final + tone) |
+| `near_homophones` | other dataset chars with same syllable (initial+final) but different tone |
+| `double_danger` | chars that are BOTH visual (IDS Jaccard ≥ 0.25) AND phonologically similar (≥ 0.70) — the hardest learner pairs |
+
+Phonological similarity scoring:
+
+| condition | score |
+|---|---|
+| same initial + final + tone | 1.00 |
+| same initial + final, different tone | 0.85 |
+| same final (rhyme) only | 0.55 |
+| same initial (onset) only | 0.25 |
+| unrelated | 0.00 |
+
+`double_danger` threshold: phonological score ≥ 0.70 (homophone or near-homophone) AND Jaccard ≥ 0.25 (visual similar).
+
+**Dataset statistics (2998 chars):**
+- 515 chars have at least one `double_danger` neighbor
+- 2605 chars have at least one homophone in the dataset
+
+**Notable double-danger pairs:**
+```
+清[qīng]  double_danger=晴情请   (homophone/near-homophone + visually similar)
+胃[wèi]   double_danger=畏       (homophones: both wèi)
+候[hòu]   double_danger=侯       (侯=hóu, near-homophone + visually similar)
+```
+
+### visual pixel — HOG edge features
+
+`data_similar_visual.json` finds visually similar characters by rendering each character at 56×56 px using LXGWWenKai font and computing HOG-like edge density features:
+
+1. Render character as 56×56 binary bitmap
+2. Compute edge magnitude (Sobel-like: `√(|∂x|² + |∂y|²)`)
+3. Divide into 7×7 grid cells (8px/cell) → 49-dimensional feature vector
+4. L2-normalize the vector
+5. Compute all-pairs cosine similarity via `feat_mat @ feat_mat.T`
+
+New fields vs. the global index:
+
+| field | meaning |
+|---|---|
+| `similar` | up to 8 most similar chars by edge-feature cosine similarity (threshold=0.97) |
+| `visual_only` | subset of `similar` NOT found by IDS Jaccard ≥ 0.25 — genuinely novel pairs |
+| `edge_sim` | `{char: cosine_similarity}` for each char in `similar` |
+
+`visual_only` uses **uncapped** IDS Jaccard: a pair is excluded from `visual_only` only if IDS Jaccard ≥ 0.25 (regardless of whether it appears in the top-8 similar list). This prevents false positives from characters that share a common radical but happen to fall outside the top-8 display cap.
+
+**Dataset statistics (2998 chars, threshold=0.97):**
+- 611 chars have at least one `visual_only` neighbor (1277 total directed pairs)
+
+**High-quality novel pairs found:**
+```
+己/已         (己 vs 已 — single middle stroke differs)
+乌/鸟         (乌=鸟 missing a dot — classic single-stroke pair)
+干/千         (一 vs 丿 at top — single stroke substitution)
+义/叉/又      (classic tri-confusion set)
+未/米/朱      (classic confusion cluster)
+吏/史         (one stroke difference)
+威/咸         (both contain 戊 structure with different enclosure)
+胃/育/肾      (anatomical chars with similar proportions)
+惠/恩         (similar structure, differ in bottom radical)
+贸/贤         (both have 页 structure)
+颖/颗         (near-identical phonetic-semantic compounds)
+善/兽         (similar ink distribution at this resolution)
+```
+
+**Limitation:** HOG features capture spatial edge density, not specific stroke shapes. At 7×7 resolution, characters with the same structural template (⿰氵X) may still show moderate similarity even when their right components differ — but only those with IDS Jaccard < 0.25 reach `visual_only`.
+
+### radical cluster — abstract radical similarity
+
+`data_similar_radical.json` finds cross-radical confusion pairs invisible to concrete IDS Jaccard. It maps visually similar radical variants to shared abstract labels, then runs Jaccard over the abstract features.
+
+**Cluster mappings:**
+```
+氵/冫  → DRIP    (3-dot water vs 2-dot ice)
+扌/手  → HAND
+忄/心  → HEART
+讠/言  → SPEECH
+纟/糸  → THREAD
+钅/金  → METAL
+艹/⺾  → GRASS
+辶/彳  → WALK
+刂/刀  → KNIFE
+阝     → MOUND
+```
+
+Each concrete radical is replaced by its cluster label before computing Jaccard. A pair in `cluster_only` means: they are similar at the abstract level (share a cluster) but NOT at the concrete level (Jaccard < 0.25 with specific radicals), i.e., one has 氵 and the other has 冫 in the same slot with the same right component.
+
+New field:
+
+| field | meaning |
+|---|---|
+| `cluster_only` | chars found similar by cluster Jaccard but NOT by concrete IDS Jaccard |
+
+**Dataset statistics (2998 chars):**
+- 195 chars have at least one `cluster_only` neighbor
+
+**Key cluster pairs found (DRIP: 氵 ↔ 冫):**
+```
+清[L=氵, R=青]  cluster_only=次决准况   (次/决/准/况 all have L=冫, different R)
+冷[L=冫, R=令]  cluster_only=淫         (淫 has L=氵)
+凉[L=冫, R=京]  cluster_only=淫
+```
+
+Note: 次/决/准/况 use **冫** (bīng, U+51AB, ice radical) while 清/浸/泳 use **氵** (sān shuǐ, U+6C35, water radical). They look nearly identical to learners but have IDS Jaccard = 0 (no shared features). The cluster index surfaces these as potential confusion pairs.
 
 ### hybrid — IDS positions + HanziDecomposer components
 
@@ -447,17 +563,16 @@ Replace IDS leaf components with abstract type labels. Characters sharing the sa
 
 Distance = minimum component substitutions to transform one IDS tree into another. Characters at edit distance 1 (differ by exactly one component in one slot) are the most directly confusable. More principled than Jaccard for ranking similarity strength, but O(n²) to compute.
 
-### Cross-radical abstraction in global index
-
-The experiment (exp_novel.py) confirmed this finds ~50+ new confusion pairs. Integrating into `build_char_index` would require: normalize radical variants before computing pos-features, re-run the Jaccard similarity with abstract features, merge the new neighbors into `similar`. More complete confusion sets, better `contrasts`.
-
-### Image-based pixel similarity
-
-Render each character at 32×32 from a CJK font and compare pixel vectors. The only approach that catches purely visual similarity with no component overlap — characters like 己/已/巳 that are structurally nearly identical but have completely different IDS trees. Requires `Pillow` + a CJK font.
-
 ### Confusion network clustering
 
 Build a pairwise Jaccard similarity graph over all characters. Run Louvain community detection to get non-overlapping clusters. Each character ends up in exactly one group. The current approach produces overlapping groups (a character can appear in many shared-component groups simultaneously); clustering forces a consistent single assignment.
+
+### Integration of new fields into `anki_memodevice.py`
+
+The three new indexes (`pinyin`, `visual`, `radical`) are not yet used in card generation. Planned additions:
+- `double_danger` — flag on the card face when a char is both visually and phonologically similar to another
+- `visual_only` — supplement `similar` display for chars like 己/已 that IDS misses
+- `cluster_only` — annotation for 氵/冫 cross-radical pairs ("⚠ also confusable with 次/决 which use 冫 instead of 氵")
 
 ---
 
