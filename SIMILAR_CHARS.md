@@ -87,15 +87,27 @@ Limitation: only top-level IDS components — sub-stroke connections (艮 in bot
       {"vs": "机", "slot": "R", "ours": "黄", "theirs": "几"}
     ]
   },
-  "间": {
-    "components": ["O=日", "T=门"],
+  "清": {
+    "components": ["R=青", "L=氵"],
     "identity":   "pair",
-    "joint":      ["O=日", "T=门"],
-    "similar":    ["问", "闻", "闪", "闭", "闹"],
+    "joint":      ["L=氵", "R=青"],
+    "similar":    ["精", "靖", "睛", "猜", "晴", "情", "请", "倩"],
     "contrasts":  [
-      {"vs": "问", "slot": "O", "ours": "日", "theirs": "口"},
-      {"vs": "闻", "slot": "O", "ours": "日", "theirs": "耳"},
-      {"vs": "闪", "slot": "O", "ours": "日", "theirs": "人"}
+      {"vs": "精", "slot": "L", "ours": "氵", "theirs": "米"},
+      {"vs": "靖", "slot": "L", "ours": "氵", "theirs": "立"},
+      {"vs": "睛", "slot": "L", "ours": "氵", "theirs": "目"}
+    ],
+    "phonetic":          "青",
+    "phonetic_siblings": ["精", "靖", "睛", "猜", "晴", "情", "请", "倩"]
+  },
+  "常": {
+    "components": ["B=巾", "T=𫩠"],
+    "identity":   "pair",
+    "joint":      ["B=巾", "T=𫩠"],
+    "similar":    ["党", "掌", "堂", "赏", "棠"],
+    "contrasts":  [
+      {"vs": "党", "slot": "B", "ours": "巾", "theirs": "儿"},
+      {"vs": "掌", "slot": "B", "ours": "巾", "theirs": "手"}
     ]
   },
   "度": {
@@ -111,14 +123,20 @@ Limitation: only top-level IDS components — sub-stroke connections (艮 in bot
 
 | field | meaning |
 |---|---|
-| `components` | pos-features from global discriminating set (use these for "look for…") |
+| `components` | pos-features from global discriminating set, **salience-reranked** (most visually prominent first) |
 | `identity` | `singleton` / `pair` / `triple` / `full` / `subset` |
 | `joint` | the minimal unique conjunction — same features, different framing |
 | `similar` | up to 8 most confusable chars (by Jaccard, sorted by similarity) |
 | `contrasts` | contrastive slot pairs vs nearest neighbors: `[{vs, slot, ours, theirs}]` |
+| `phonetic` | phonetic component 声旁 for simple ⿰(L)(R) chars — the right component |
+| `phonetic_siblings` | all other chars in the dataset sharing this phonetic (the full phonetic family) |
 | `ids_str` | IDS string for subset chars |
 
-`components` and `joint` contain the same features. `contrasts` is the qualitatively new field: for each near-neighbor, it names the **specific slot where they differ** — "间 has O=日, where 问 has O=口, 闻 has O=耳." This frames identification by direct contrast rather than as an abstract feature list.
+**Salience reranking**: `components` are sorted by `salience(slot) × rarity(feature)`. For ⿰ chars, `R=` (60% visual area) always comes before `L=` (40%). For ⿱ chars, `B=` (55%) comes before `T=` (45%). 18.6% of two-feature chars are reordered vs. pure-rarity ordering — these are the chars where the rarest feature is not the most visually prominent one.
+
+**Phonetic family**: ~80% of Chinese characters are 形声字 (semantic-phonetic compounds). For ⿰ chars, the right component is the phonetic (声旁); the left is the semantic radical. 903 chars have `phonetic` / `phonetic_siblings`. Phonetic family members (清情请晴精靖睛猜倩 all sharing 青) are the highest-priority real-world confusion cluster — they look nearly identical and may sound similar. The `contrasts` field captures the slot-level differences; `phonetic_siblings` gives the full family for a card hint: "phonetic series: 青 → 清/情/请/晴/精/靖/睛".
+
+`contrasts` frames identification by direct contrast: "清 has L=氵, where 精 has L=米, 靖 has L=立, 睛 has L=目."
 
 ### hybrid — IDS positions + HanziDecomposer components
 
@@ -326,6 +344,15 @@ Normalize radical variants: 扌/手/𠂇→HAND, 氵/水→WATER, etc. Running J
 - 准~鹤: both BIRD (隹) in different positions
 
 Not yet integrated into the global index — would require a second pass over the confusion set computation.
+
+### Phonetic series (声旁) — **implemented in global index**
+For simple ⿰(L)(R) characters, R is the phonetic component (声旁) that gives approximate pronunciation; L is the semantic radical. 186 phonetic families exist in the dataset, all with avg intra-family Jaccard = 0.333 (all family members are each other's confusion neighbors). 903 chars now have `phonetic` and `phonetic_siblings` fields. 535 phonetic-family pairs were NOT in each other's global similar list (despite Jaccard ≥ 0.25) because the cap of 8 is exceeded in large families like 扌 (148 chars) — the `phonetic_siblings` field gives the full family, bypassing the cap.
+
+### Salience-reranked fingerprint — **implemented in global index**
+Features are now sorted by `salience(slot) × rarity(feature)` instead of pure rarity. Visual salience approximates the fraction of the character's area occupied by each slot (R=60%, L=40%, B=55%, T=45% for ⿰/⿱). 272/1460 two-feature chars (18.6%) have their ordering changed. Effect: for ⿰ chars the phonetic/right component is listed first; for ⿱ chars the bottom component leads. Cards show the most visually prominent discriminator first.
+
+### Structural template (IDS skeleton)
+Replace IDS leaf components with abstract type labels. Characters sharing the same operator-sequence template share the same visual skeleton. 73 distinct templates; the enclosure operators (⿵, ⿷) have the highest intra-template Jaccard (0.21–0.24) and are already found by Jaccard similarity. For ⿰(X,X) (1534 chars), template is too coarse — most pairs share no components. Most useful as a human-readable shape descriptor, not as a new similarity detector.
 
 ---
 

@@ -17,6 +17,16 @@ _IDS_OPS = {'⿰':2,'⿱':2,'⿲':3,'⿳':3,'⿴':2,'⿵':2,'⿶':2,'⿷':2,'⿸
 _SLOTS   = {'⿰':['L','R'],'⿱':['T','B'],'⿲':['L','M','R'],'⿳':['T','M','B'],
             '⿴':['O','I'],'⿵':['T','O'],'⿶':['B','O'],'⿷':['R','O'],
             '⿸':['TL','O'],'⿹':['TR','O'],'⿺':['BL','O'],'⿻':['A','B']}
+# Approximate visual area fraction each slot occupies within its operator.
+# Used to rank discriminating features by perceptual salience.
+_SLOT_SALIENCE = {
+    '⿰': {'L': 0.40, 'R': 0.60}, '⿱': {'T': 0.45, 'B': 0.55},
+    '⿲': {'L': 0.30, 'M': 0.35, 'R': 0.35}, '⿳': {'T': 0.30, 'M': 0.35, 'B': 0.35},
+    '⿴': {'O': 0.65, 'I': 0.35}, '⿵': {'T': 0.60, 'O': 0.40},
+    '⿶': {'B': 0.60, 'O': 0.40}, '⿷': {'R': 0.60, 'O': 0.40},
+    '⿸': {'TL': 0.55, 'O': 0.45}, '⿹': {'TR': 0.55, 'O': 0.45},
+    '⿺': {'BL': 0.55, 'O': 0.45}, '⿻': {'A': 0.50, 'B': 0.50},
+}
 
 
 def _parse_ids(s):
@@ -273,6 +283,49 @@ def _slot_contrasts(char, similar_chars, pos_map, feat_freq):
     return result[:4]
 
 
+def _feat_salience_score(feat, feat_freq, n_chars):
+    """salience(slot) × rarity(feat) — used to sort fingerprint features for card display.
+    Salience approximates visual area fraction; rarity = 1 - freq/n. Depth-nested slots
+    are discounted by 0.7 per nesting level."""
+    if '=' not in feat: return 0.5
+    slot_path = feat.split('=')[0]
+    top_slot = slot_path.split('.')[0]
+    sal = 0.5
+    for op, slot_map in _SLOT_SALIENCE.items():
+        if top_slot in slot_map:
+            sal = slot_map[top_slot]; break
+    sal *= 0.7 ** slot_path.count('.')
+    return sal * (1.0 - feat_freq.get(feat, 0) / n_chars)
+
+
+def _build_phonetic_families(characters, ids_dict):
+    """For simple ⿰(L)(R) chars where both L and R are single components,
+    R is the phonetic (声旁). Build and return a dict:
+      char → (phonetic_component, sorted_sibling_chars_in_dataset)
+    Only chars with ≥2 siblings (family size ≥ 3) are included."""
+    char_to_phonetic = {}
+    for char in characters:
+        ids_str = ids_dict.get(char, {}).get('ids', '')
+        if not ids_str or ids_str[0] != '⿰': continue
+        tree = _parse_ids(ids_str)
+        if not isinstance(tree, tuple): continue
+        op, children = tree
+        if op != '⿰' or len(children) != 2: continue
+        L, R = children
+        if not (isinstance(L, str) and isinstance(R, str)): continue
+        if not (_valid_comp(L) and _valid_comp(R)) or L in NOISE or R in NOISE: continue
+        char_to_phonetic[char] = R
+    phonetic_to_chars = defaultdict(list)
+    for char, ph in char_to_phonetic.items():
+        phonetic_to_chars[ph] += [char]
+    result = {}
+    for char, ph in char_to_phonetic.items():
+        siblings = [c for c in phonetic_to_chars[ph] if c != char]
+        if len(siblings) >= 2:
+            result[char] = (ph, siblings)
+    return result
+
+
 def _hybrid_similarity(pos_a, pos_b, comp_a, comp_b):
     pos_j = _jaccard(pos_a, pos_b)
     comp_j = _jaccard(comp_a, comp_b)
@@ -331,25 +384,34 @@ def _component_contrasts(char, similar_chars, comp_map, feat_freq, skip_chars=No
 def build_char_index(characters, ids_dict, threshold=0.25):
     """Build global fingerprint, joint identity, and contrastive pairs for every character.
     Returns a dict keyed by character:
-      components   — pos-features from global discriminating set
-      identity     — joint identity type: singleton / pair / triple / full / subset
-      joint        — pos-features forming the minimal unique conjunction
-      similar      — up to 8 most similar chars (Jaccard >= threshold)
-      contrasts    — slot contrasts vs nearest lookalikes: [{vs, slot, ours, theirs}]
-      ids_str      — IDS string for subset characters
+      components        — pos-features from global discriminating set, salience-reranked
+      identity          — joint identity type: singleton / pair / triple / full / subset
+      joint             — pos-features forming the minimal unique conjunction
+      similar           — up to 8 most similar chars (Jaccard >= threshold)
+      contrasts         — slot contrasts vs nearest lookalikes: [{vs, slot, ours, theirs}]
+      phonetic          — phonetic component (声旁) for simple ⿰(L)(R) chars, else absent
+      phonetic_siblings — other chars in dataset sharing the same phonetic component
+      ids_str           — IDS string for subset characters
     """
     pos_map = {c: get_pos_feats(c, ids_dict) for c in characters}
     feat_freq = defaultdict(int)
     for feats in pos_map.values():
         for f in feats:
             feat_freq[f] += 1
+    n = len(characters)
+    phonetic_families = _build_phonetic_families(characters, ids_dict)
     result = {}
     for char in characters:
         gf, similar, gf_type = global_fingerprint(char, pos_map, characters, threshold)
         ji, ji_type = joint_identity(char, pos_map, characters)
         contrasts = _slot_contrasts(char, similar, pos_map, feat_freq)
-        entry = {'components': gf, 'identity': ji_type if gf_type != 'subset' else 'subset',
+        gf_sorted = sorted(gf, key=lambda f: _feat_salience_score(f, feat_freq, n), reverse=True)
+        entry = {'components': gf_sorted, 'identity': ji_type if gf_type != 'subset' else 'subset',
                  'joint': ji, 'similar': similar, 'contrasts': contrasts}
+        if char in phonetic_families:
+            ph, siblings = phonetic_families[char]
+            entry['phonetic'] = ph
+            entry['phonetic_siblings'] = siblings
         if gf_type == 'subset':
             entry['ids_str'] = ids_dict.get(char, {}).get('ids', char)
         result[char] = entry
@@ -500,7 +562,7 @@ if __name__ == "__main__":
 
     # Sample output
     print("\n── global index (sample) ──")
-    sample = ['横', '间', '问', '棒', '棱', '常', '党', '披', '波', '超']
+    sample = ['横', '间', '问', '棒', '棱', '常', '党', '披', '波', '超', '清', '情', '请']
     for char in sample:
         if char not in idx: continue
         e = idx[char]
@@ -508,7 +570,8 @@ if __name__ == "__main__":
         ji = ' & '.join(e['joint']) if e['joint'] else '—'
         sim = ''.join(e['similar'][:5])
         ct_str = '; '.join(f"{c['vs']}:{c['slot']}={c['theirs']}" for c in e.get('contrasts', [])[:3])
-        print(f"  {char}  disc=[{gf}]  joint=[{ji}]  type={e['identity']}  similar={sim}")
+        ph_str = f"  phonetic={e['phonetic']} siblings={''.join(e['phonetic_siblings'][:6])}" if 'phonetic' in e else ''
+        print(f"  {char}  disc=[{gf}]  joint=[{ji}]  type={e['identity']}  similar={sim}{ph_str}")
         if ct_str: print(f"       contrasts: {ct_str}")
 
     with open('data_similar_global.json', 'w', encoding='utf-8') as f:
