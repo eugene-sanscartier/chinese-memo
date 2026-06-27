@@ -17,10 +17,10 @@ The output of each approach is filtered to the components that vary among the ch
 - **No slot labels**: component values must be bare characters (e.g. `木`, not `L=木` or `R=木`). Slot-labelled features are internal to `build_char_index` and must never appear in `data_components_*` output.
 - **Systematic ordering** — each approach has a fixed ordering rule:
   - `direct`: IDS positional reading order (left → right, top → bottom as written in the IDS string)
+  - `all`: BFS depth-order (shallowest component first, tiebreak by tree position); shallower = more visually prominent
   - `hanzi`: HanziDecomposer output order (preserve as returned)
-  - `phonetic`: semantic component first (meaning-carrier), then phonetic
-  - `all`: alphabetical (no structural order available)
-  - `merged`: by vote count descending (most-confirmed component first)
+  - `merged`: by vote count descending (most-confirmed component first); empty list when no component is confirmed by ≥2 approaches
+- **Entity references**: components like `&CDP-89EB;` are valid and must be kept — they name CJK characters that lack a Unicode code point. Do not filter them out.
 
 ## Data sources
 
@@ -31,7 +31,7 @@ The output of each approach is filtered to the components that vary among the ch
 | `decomposer` | `HanziDecomposer()` | level-2 component decomposition (independent source, often disagrees with IDS) |
 | `char_dict` | `dictionary_char.jsonl` | `components`, `strokeCount`, HSK level, corpus frequency rank, `gloss` |
 
-## Current output — `data_similar/data_components_*.json`
+## Current output — `data_components/data_components_*.json`
 
 One file per decomposition approach. Each maps every character to a list of bare component characters — the discriminating subset of its full decomposition. Empty list means no discriminating component could be found (character is a structural subset of a neighbour).
 
@@ -46,10 +46,9 @@ One file per decomposition approach. Each maps every character to a list of bare
 ## Implemented decomposition approaches
 
 - **Direct** — the immediate structural parts of a character: depth-1 IDS children in positional reading order.
-- **All** — the full recursive IDS ancestry (superset of direct). Captures components that only appear deeper in the structure.
+- **All** — the full recursive IDS ancestry (superset of direct), ordered by BFS depth so shallower (more visually prominent) components come first. Captures components that only appear deeper in the structure.
 - **Hanzi** — decomposition from HanziDecomposer, an independent source. Disagreements with IDS surface components the IDS tree misses.
-- **Phonetic** — for 形声字: the semantic (meaning-carrier) and phonetic components from MMA etymology, semantic first.
-- **Merged** — components confirmed discriminating by ≥2 of the above, ordered by vote count. The most cross-validated decomposition.
+- **Merged** — components confirmed discriminating by ≥2 of the above, ordered by vote count. Empty when no component reaches the ≥2 threshold — never falls back to single-source components.
 
 ---
 
@@ -81,4 +80,3 @@ Each idea is framed as a new source of discriminating components.
 
 - **Contrastive decomposition** — instead of a flat component list, express each component as an explicit contrast: `{vs: 睛, ours: 日, theirs: 目}`. Makes the decomposition directly actionable for card display and ties each component to a specific confusable.
 
-- **Depth-ranked components** — rank components by how deep in the IDS tree they appear: depth-1 (direct children) > depth-2 > deeper. Shallower components are visually more salient and should lead the decomposition set.

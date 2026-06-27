@@ -324,21 +324,28 @@ def build_char_index(characters, ids_dict, mma_dict=None, char_dict=None, thresh
 
 # ── per-approach component files ─────────────────────────────────────────────
 
-def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None, output_dir='.'):
+def write_component_files(characters, ids_dict, similar_idx=None, output_dir='.'):
     """Build a set of components for each character using multiple decomposition approaches.
 
     Each approach produces a {char: [comp, ...]} JSON file. Components are filtered to
     those that vary among the character's confusable neighbours (from similar_idx) —
     components shared by ALL neighbours are excluded.
 
-    Approaches (ids_dict required):
+    Output:
       data_components_direct.json   — depth-1 IDS children, positional reading order
-      data_components_all.json      — full recursive IDS component set (superset of direct)
+      data_components_all.json      — full recursive IDS component set, BFS depth-order
       data_components_hanzi.json    — HanziDecomposer level-2 (independent source)
+      data_components_merged.json   — confirmed by ≥2 approaches, vote-count order
 
-    Approaches (optional sources):
-      data_components_phonetic.json — MMA etymology: semantic first, then phonetic  (mma_dict)
-      data_components_merged.json   — confirmed by ≥2 approaches, sorted by vote count
+    Approaches:
+      direct  — immediate structural parts from the depth-1 IDS operator; ordering follows
+                the IDS positional reading order (left→right, top→bottom)
+      all     — full recursive ancestry from the IDS tree (superset of direct); ordered by
+                BFS depth so shallower (more visually prominent) components come first
+      hanzi   — HanziDecomposer level-2 decomposition; an independent source that often
+                disagrees with IDS, surfacing components the IDS tree misses
+      merged  — components confirmed discriminating by ≥2 of the above approaches, sorted
+                by vote count; empty list when no component reaches the threshold
     """
     def _ok(x): return x not in NOISE and (len(x) != 1 or _valid_comp(x))
 
@@ -362,6 +369,20 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
         for s in similar: common &= set(comps_map[s])
         return my - common
 
+    def _bfs_leaves(char):
+        """All IDS leaf characters in BFS order: shallowest components first."""
+        tree = _parse_ids(ids_dict.get(char, {}).get('ids', ''))
+        if not tree: return []
+        seen, result, queue, i = set(), [], [tree], 0
+        while i < len(queue):
+            node = queue[i]; i += 1
+            if isinstance(node, str):
+                comp = _RADICAL_NORM.get(node, node)
+                if comp != char and comp not in seen and _ok(comp): seen.add(comp); result += [comp]
+            elif isinstance(node, tuple):
+                queue += node[1]
+        return result
+
     # ── build structural component maps ───────────────────────────────────────
 
     # direct: IDS positional reading order (left→right, top→bottom)
@@ -372,9 +393,14 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
         disc = _discriminating(c, direct_map)
         direct[c] = [ch for ch in direct_ordered[c] if ch in disc]
 
-    # all: alphabetical (no structural order available for recursive set)
+    # all: BFS depth-order (shallowest component first, tiebreak by tree position)
     all_map = {c: set(x for x in (ids_dict.get(c, {}).get('components', []) or []) if x != c and _ok(x)) for c in characters}
-    all_recursive = {c: sorted(_discriminating(c, all_map)) for c in characters}
+    all_recursive = {}
+    for c in characters:
+        disc = _discriminating(c, all_map)
+        ordered = [x for x in _bfs_leaves(c) if x in disc]
+        ordered += sorted(disc - set(ordered))
+        all_recursive[c] = ordered
 
     # hanzi: preserve HanziDecomposer output order
     hanzi_ordered = {}
@@ -399,30 +425,6 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
 
     structural_maps = [direct_map, all_map, hanzi_map]
 
-    # ── optional sources ──────────────────────────────────────────────────────
-
-    if mma_dict:
-        phonetic_map = {}
-        for c in characters:
-            e = mma_dict.get(c, {}).get('etymology') or {}
-            comps = set()
-            if e.get('phonetic'): comps.add(_RADICAL_NORM.get(e['phonetic'], e['phonetic']))
-            if e.get('semantic'): comps.add(_RADICAL_NORM.get(e['semantic'], e['semantic']))
-            phonetic_map[c] = comps
-        # phonetic: semantic (meaning-carrier) first, then phonetic
-        phonetic = {}
-        for c in characters:
-            e = mma_dict.get(c, {}).get('etymology') or {}
-            disc = _discriminating(c, phonetic_map)
-            sem = _RADICAL_NORM.get(e.get('semantic', ''), e.get('semantic', ''))
-            ph = _RADICAL_NORM.get(e.get('phonetic', ''), e.get('phonetic', ''))
-            result = []
-            if sem and sem in disc: result += [sem]
-            if ph and ph in disc and ph not in result: result += [ph]
-            phonetic[c] = result + sorted(disc - set(result))
-        files += [('data_components_phonetic.json', phonetic)]
-        structural_maps.append(phonetic_map)
-
     # ── merged: by vote count descending (most-confirmed component first) ─────
 
     merged = {}
@@ -430,8 +432,7 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
         counts = defaultdict(int)
         for m in structural_maps:
             for comp in _discriminating(c, m): counts[comp] += 1
-        reliable = sorted((comp for comp, n in counts.items() if n >= 2), key=lambda x: -counts[x])
-        merged[c] = reliable if reliable else sorted(counts.keys(), key=lambda x: -counts[x])
+        merged[c] = sorted((comp for comp, n in counts.items() if n >= 2), key=lambda x: -counts[x])
     files += [('data_components_merged.json', merged)]
 
     for filename, data in files:
@@ -468,7 +469,4 @@ if __name__ == "__main__":
     idx = build_char_index(characters, ids_dict, mma_dict=mma_dict, char_dict=char_dict)
 
     print("\nWriting per-approach component files...")
-    write_component_files(characters, ids_dict,
-        similar_idx=idx,
-        mma_dict=mma_dict,
-        output_dir=OUT)
+    write_component_files(characters, ids_dict, similar_idx=idx, output_dir=OUT)
