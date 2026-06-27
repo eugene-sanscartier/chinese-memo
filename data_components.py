@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import unicodedata
 from collections import defaultdict
 from itertools import combinations
 from hanzipy.decomposer import HanziDecomposer
@@ -57,6 +58,10 @@ def _valid_comp(c):
     if len(c) != 1: return True  # entity references like &CDP-8CCE; are valid
     o = ord(c)
     return (o >= 0x2E80 and not (0xE000 <= o <= 0xF8FF or 0xF0000 <= o <= 0x10FFFF))
+
+
+def _strip_tone(p):
+    return ''.join(c for c in unicodedata.normalize('NFD', p) if unicodedata.category(c) != 'Mn')
 
 
 def _pos_leaves(tree, path=''):
@@ -342,27 +347,36 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
       data_components_meaning.json    — meaning-type components only  (memo_dict)
       data_components_family.json     — components shared by ≥50% of confusables (group binding)
       data_components_consensus.json  — strict direct∩memodevice intersection  (memo_dict)
-      data_components_hint.json       — CJK characters named in free-text hint field  (memo_dict)
-      data_components_merged.json     — confirmed by ≥2 approaches (direct/all/hanzi/radical/memodevice)
+      data_components_hint.json        — CJK characters named in free-text hint field  (memo_dict)
+      data_components_rare.json        — globally rare components (appear in ≤2% of chars), rarest first
+      data_components_contrastive.json — unique vs single closest confusable only (from all_map)
+      data_components_pinyin.json      — components sharing the character's pinyin syllable  (mma_dict)
+      data_components_merged.json      — confirmed by ≥2 approaches (direct/all/hanzi/radical/memodevice)
 
     Approaches:
-      direct     — immediate structural parts from the depth-1 IDS operator (positional order)
-      all        — full recursive IDS ancestry (superset of direct); BFS depth-order so shallower
-                   (more visually prominent) components come first
-      hanzi      — HanziDecomposer level-2; independent source, often finer-grained than IDS
-      radical    — single KangXi radical from MMA; culturally grounded, always one entry
-      memodevice — human-curated typed decomposition; meaning→sound→iconic; often disagrees
-                   with IDS (e.g. 明=囧+月 vs IDS 日+月)
-      meaning    — meaning-type components only from memodevice; semantic core
-      family     — components shared by ≥50% of confusables; inverse of discriminating: shows
-                   what binds the confusion group rather than what differs. NOT filtered by
-                   _discriminating. Ordered by share fraction descending.
-      consensus  — strict intersection of direct∩memodevice; only components both IDS structure
-                   and human curation agree on at the named sub-character level
-      hint       — CJK characters mentioned in the free-text hint field of memodevice, in
-                   text-appearance order; captures what the human author chose to describe first
-      merged     — confirmed by ≥2 structural sources (direct/all/hanzi/radical/memodevice),
-                   vote-count order; empty when no component reaches the threshold
+      direct      — immediate structural parts from the depth-1 IDS operator (positional order)
+      all         — full recursive IDS ancestry (superset of direct); BFS depth-order so shallower
+                    (more visually prominent) components come first
+      hanzi       — HanziDecomposer level-2; independent source, often finer-grained than IDS
+      radical     — single KangXi radical from MMA; culturally grounded, always one entry
+      memodevice  — typed decomposition from data_memodevice.json; meaning→sound→iconic
+      meaning     — meaning-type components only from memodevice; semantic core
+      family      — components shared by ≥50% of confusables; inverse of discriminating: shows
+                    what binds the confusion group rather than what differs. NOT filtered by
+                    _discriminating. Ordered by share fraction descending.
+      consensus   — strict intersection of direct∩memodevice; only components both IDS structure
+                    and memodevice agree on at the named sub-character level
+      hint        — CJK characters mentioned in the free-text hint field of memodevice, in
+                    text-appearance order; captures what the human author chose to describe first
+      rare        — globally rare components from all_map (appear in ≤~2% of dataset), sorted by
+                    ascending global frequency; NOT filtered by _discriminating — asks "what rare
+                    structural element is this character built from?" vs local confusable context
+      contrastive — components unique to this character vs its single closest confusable (highest
+                    Jaccard); BFS order; more targeted than _discriminating for the hardest pair
+      pinyin      — components from all_map sharing the character's pinyin syllable (tone-stripped);
+                    NOT filtered by _discriminating; detects phonetic carriers for 形声字 acoustically
+      merged      — confirmed by ≥2 structural sources (direct/all/hanzi/radical/memodevice),
+                    vote-count order; empty when no component reaches the threshold
     """
     def _ok(x): return x not in NOISE and (len(x) != 1 or _valid_comp(x))
 
@@ -435,6 +449,15 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
         ordered += sorted(disc - set(ordered))
         all_recursive[c] = ordered
 
+    # global component frequency across dataset (from all_map); used by rare and contrastive
+    global_freq = defaultdict(int)
+    for c in characters:
+        for comp in all_map[c]: global_freq[comp] += 1
+    _rare_thresh = max(1, len(characters) // 50)
+
+    # rare: globally rare components (≤~2% of dataset), rarest first; no discriminating filter
+    rare = {c: sorted((x for x in all_map[c] if global_freq[x] <= _rare_thresh), key=lambda x: global_freq[x]) for c in characters}
+
     # hanzi: preserve HanziDecomposer output order
     hanzi_ordered = {}
     for c in characters:
@@ -454,6 +477,7 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
         ('data_components_direct.json', direct),
         ('data_components_all.json',    all_recursive),
         ('data_components_hanzi.json',  hanzi),
+        ('data_components_rare.json',   rare),
     ]
 
     structural_maps = [direct_map, all_map, hanzi_map]
@@ -462,6 +486,19 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
 
     family = {c: _family_shared(c, direct_map) for c in characters}
     files += [('data_components_family.json', family)]
+
+    # ── contrastive: unique vs single closest confusable only ────────────────────
+
+    contrastive = {}
+    for c in characters:
+        similar = ((similar_idx or {}).get(c, {}).get('similar', []))
+        my = all_map.get(c, set())
+        closest = next((s for s in similar if s in all_map), None)
+        if closest is None: contrastive[c] = [x for x in _bfs_leaves(c) if x in my]
+        else:
+            unique = my - all_map.get(closest, set())
+            contrastive[c] = [x for x in _bfs_leaves(c) if x in unique]
+    files += [('data_components_contrastive.json', contrastive)]
 
     # ── KangXi radical (mma_dict) ─────────────────────────────────────────────
 
@@ -475,6 +512,18 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
         radical = {c: [r for r in radical_ordered[c] if r in _discriminating(c, radical_map)] for c in characters}
         files += [('data_components_radical.json', radical)]
         structural_maps += [radical_map]
+
+        # pinyin: components sharing the character's pinyin syllable; no discriminating filter
+        _all_pinyin = {}
+        for ch, entry in mma_dict.items():
+            stripped = {_strip_tone(p) for p in (entry.get('pinyin') or [])}
+            if stripped: _all_pinyin[ch] = stripped
+        pinyin_result = {}
+        for c in characters:
+            my_pinyins = _all_pinyin.get(c, set())
+            if not my_pinyins: pinyin_result[c] = []; continue
+            pinyin_result[c] = [comp for comp in _bfs_leaves(c) if comp in _all_pinyin and _all_pinyin[comp] & my_pinyins]
+        files += [('data_components_pinyin.json', pinyin_result)]
 
     # ── memodevice typed components (memo_dict) ───────────────────────────────
 

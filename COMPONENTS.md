@@ -48,7 +48,7 @@ One file per decomposition approach. Each maps every character to a list of bare
 }
 ```
 
-Active files: `direct`, `all`, `hanzi`, `radical`, `memodevice`, `meaning`, `merged`.
+Active files: `direct`, `all`, `hanzi`, `rare`, `contrastive`, `family`, `radical`, `memodevice`, `meaning`, `consensus`, `hint`, `pinyin`, `merged`.
 
 ## Implemented decomposition approaches
 
@@ -62,6 +62,9 @@ Active files: `direct`, `all`, `hanzi`, `radical`, `memodevice`, `meaning`, `mer
 - **Family** — components shared by ≥50% of the character's confusables, ordered by share fraction descending. Intentionally NOT filtered by `_discriminating` — shows what BINDS the confusion group rather than what differs. Complementary to `direct`: together they tell the full story: "belongs to [family] group, distinguished by [direct]".
 - **Consensus** — strict intersection of `direct_map ∩ memodevice_map`, then `_discriminating` applied. Only components that both IDS structure and human curation independently name at the named sub-character level. When smaller than both parents (e.g. 明=`['月']` vs direct's `['日','月']` and memo's `['囧','月']`), it identifies the single most agreed-upon component.
 - **Hint** — CJK characters extracted from the free-text `hint` field in `data_memodevice.json`, in text-appearance order. Unlike all other approaches, this is **etymological**: the hint text systematically describes traditional forms and historical components (归: hint=`['歸','止','帚']` — broom+foot=return; 准: `['準','氵','隼']` — water+falcon). Answers "where did this character come from?" not "how is it structured today?".
+- **Rare** — components from `all_map` that appear in ≤2% of the dataset (~60/2998 chars), sorted by global frequency ascending. NOT filtered by `_discriminating` — the question is different: "what globally rare structural element is this character built from?" rather than "what distinguishes it from its specific confusables?". Covers 76 chars that `all` leaves empty — characters whose rare component is shared by all their confusables (so `_discriminating` returns nothing), but `rare` still surfaces it as the most unique structural element globally. Drops common components even when locally discriminating (e.g. 土, 口, 木 in `all` → absent from `rare`).
+- **Contrastive** — components from `all_map` unique to this character vs its SINGLE closest confusable (highest Jaccard in `similar_idx`), BFS order. Different strategy from `_discriminating` (which removes what ALL confusables share): `contrastive` removes only what the closest one has. This produces a FOCUSED set for the hardest confusion pair. 82 chars get deeper BFS components that `direct` misses (e.g. 前: direct=`['刂']`, contrastive=`['刂','䒑']`); 1184 chars lose components that `direct` keeps but are shared with the closest confusable (e.g. 常: direct=`['𫩠','巾']`, contrastive=`['𫩠']` — 巾 shared with 常's closest lookalike).
+- **Pinyin** — components from `all_map` that share the character's pinyin syllable (tone-stripped), BFS order. NOT filtered by `_discriminating` — the phonetic carrier is intentionally group-binding. Detects phonetic components for 形声字 from acoustic signal alone: no etymology annotations required. Coverage is intentionally low (876/29%) because only 43% of 形声字 in the dataset still have phonetic components whose pronunciation matches exactly (the rest diverged over time). When it fires, it is highly reliable: pinyin=`['各']` for 阁(gé) → MMA confirms phonetic=各; pinyin=`['良']` for 粮(liáng) → MMA confirms phonetic=良.
 
 ### Approach comparison
 
@@ -72,15 +75,18 @@ Coverage (non-empty / 2998 characters):
 | memodevice | 2830 (94%) | 1 |
 | merged | 2758 (92%) | 0 |
 | hanzi | 2732 (91%) | 0 |
-| family | 2672 (89%) | 1 |
+| rare | 2681 (89%) | **76** |
 | direct | 2675 (89%) | 0 |
-| hint | 2639 (88%) | **38** |
+| family | 2672 (89%) | 1 |
 | all | 2646 (88%) | 1 |
+| hint | 2639 (88%) | **38** |
+| contrastive | 2576 (85%) | 0 |
 | consensus | 2438 (81%) | 0 |
 | meaning | 1881 (63%) | 0 |
 | radical | 1813 (60%) | 3 |
+| pinyin | 876 (29%) | 0 |
 
-`hint` uniquely covers 38 characters no other approach reaches (simple chars like 八, 九, 十, 己 that have rich etymological hints but simple modern structure).
+`hint` uniquely covers 38 chars (simple chars like 八, 九, 十 with rich etymological hints but simple modern structure). `rare` uniquely covers 76 chars where `all` returns empty — characters whose components are all shared by every confusable (not locally discriminating) but still contain a globally rare structural element (e.g. 当: all=`[]`, rare=`['彐']`).
 
 Pairwise Jaccard (average over chars where at least one approach is non-empty):
 
@@ -89,18 +95,21 @@ Pairwise Jaccard (average over chars where at least one approach is non-empty):
 | consensus vs memodevice | **0.794** | | meaning vs radical | 0.493 |
 | consensus vs direct | 0.764 | | meaning vs family | 0.464 |
 | direct vs memodevice | 0.694 | | radical vs family | 0.433 |
-| direct vs consensus | 0.764 | | consensus vs hint | 0.538 |
-| hint vs memodevice | 0.632 | | all vs memodevice | 0.473 |
-| direct vs all | 0.633 | | all vs hanzi | 0.450 |
-| direct vs hint | 0.469 | | family vs direct | 0.227 |
-| direct vs hanzi | 0.314 | | family vs memodevice | 0.263 |
-| hanzi vs family | **0.168** | | family vs all | **0.171** |
+| hint vs memodevice | 0.632 | | consensus vs hint | 0.538 |
+| contrastive vs direct | 0.737 | | contrastive vs all | 0.513 |
+| direct vs all | 0.633 | | rare vs all | 0.654 |
+| direct vs hint | 0.469 | | rare vs direct | 0.483 |
+| direct vs hanzi | 0.314 | | contrastive vs family | 0.242 |
+| hanzi vs family | **0.168** | | rare vs family | 0.247 |
+| family vs direct | 0.227 | | pinyin vs direct | 0.251 |
+| family vs all | **0.171** | | pinyin vs family | **0.030** |
 
-**Three structural dimensions** — approaches cluster into three distinct signals:
+**Four structural dimensions** — approaches cluster into four distinct signals:
 
-1. *Named structural level* (`direct`, `memodevice`, `consensus`): intermediate sub-characters with meaning (将, 壹, 阝). High mutual Jaccard (0.633–0.794). These are the components a human uses in a mnemonic.
-2. *Primitive level* (`hanzi`, `all`-deep): near-stroke elements (丬, 亠, 冖). Low Jaccard with named-level sources (hanzi vs family = 0.168, all vs family = 0.171).
-3. *Relational level* (`family`, `radical`, `meaning`): express a character's ROLE in its confusion group, not its internal structure. `family` = group-binding (J=0.227 with direct, 0.171 with all); `radical` = semantic type (J=0.493 with meaning).
+1. *Named structural level* (`direct`, `memodevice`, `consensus`, `contrastive`): intermediate sub-characters (将, 壹, 阝). High mutual Jaccard (0.633–0.794). These are the components a human uses in a mnemonic. `contrastive` (J=0.737 with direct) is a stricter variant focused on the closest confusion pair.
+2. *Primitive level* (`hanzi`, `all`, `rare`): near-stroke or globally rare elements (丬, 亠, 冖, 彐). Low Jaccard with named-level sources. `rare` (J=0.654 with all) filters `all_map` by global rarity — keeps the most unique building blocks.
+3. *Relational level* (`family`, `radical`, `meaning`): a character's ROLE in its confusion group. `family` = structural group-binding (J=0.227 with direct); `radical` = semantic type; `meaning` = semantic core.
+4. *Acoustic level* (`pinyin`, `hint`): sound-based or historical. `pinyin` (J=0.030 with family!) detects phonetic carriers purely from pronunciation data; `hint` is etymological prose.
 
 **Complementary pair: `family` + `direct`**
 
@@ -126,6 +135,37 @@ When consensus is smaller than both parents, it identifies the single most agree
 | 育 | 亠 厶 … | ⺼ 子 | ∅ | complete disagreement — both may be valid traditions |
 | 除 | 阝 余 | 阝 余 | 阝 余 | full agreement |
 | 膀 | 月 旁 | ⺼ 旁 | 旁 | 月/⺼ are same glyph, normalization missed; only 旁 agreed |
+
+**Complementary pair: `pinyin` + `family`**
+
+`pinyin` and `family` both find group-binding components, but for completely different groupings — they almost always disagree (J=0.030). `family` finds what visually confusable characters SHARE (semantic component); `pinyin` finds the PHONETIC component from acoustic signal. Together they give the full 形声字 analysis:
+
+| char | family | pinyin | reading |
+|---|---|---|---|
+| 阁 | 门 | 各 | 门-group member (structural), pronounced via 各 (phonetic) |
+| 粮 | 米 | 良 | 米-group member (structural), pronounced via 良 (phonetic) |
+| 粉 | 米 | 分 | 米-group member (structural), pronounced via 分 (phonetic) |
+| 糊 | 米 | 胡 | 米-group member (structural), pronounced via 胡 (phonetic) |
+| 清 | 青 | 青 | both agree — 青 is both the structural binder AND the phonetic carrier |
+
+`family` is consistently the semantic component (阝, 米, 木, 口, 田); `pinyin` is consistently the phonetic component (各, 良, 分, 胡). The rare agreement (98/870 = 11%) occurs when a character like 清 has the same element serving both roles.
+
+`pinyin` detects only 43% of 形声字 — the ones where modern pronunciation still exactly matches the phonetic component. The 57% where it's silent are characters whose phonetic has diverged over time (e.g., 语(yù) has phonetic 吾(wú), 说(shuō) has phonetic 兑(duì)).
+
+**`rare` vs `all` — global vs local scoping**
+
+`rare` and `all` use the same source (`all_map`) but different filters:
+- `all`: locally scoped — removes components shared by this character's confusables
+- `rare`: globally scoped — removes components shared by >2% of the dataset
+
+| char | all | rare | what differs |
+|---|---|---|---|
+| 尚 | 冋 冂 口 | 冋 冂 | 口 is common (>2% of chars) → rare drops it |
+| 堂 | 𫩠 土 | 𫩠 | 土 is common → rare drops it; 𫩠 is rare |
+| 间 | 日 | 门 | 日 is common (dropped by rare); 门 is rare enough to keep |
+| 当 | *(empty)* | 彐 | all finds nothing discriminating; rare surfaces 彐 as the globally rare identifier |
+
+`rare` uniquely covers 76 chars where `all` returns empty — characters whose components are all shared by every confusable, but still have a globally rare element. For these chars, `rare` provides the only structural anchor.
 
 **`hint` as etymology, not structure**
 
@@ -158,9 +198,11 @@ Key design decisions:
 
 Each idea is a distinct angle; implement only after running the comparison analysis above.
 
-- **Hint text mining** — the `hint` field in `data_memodevice.json` is free-text prose (e.g. "田 represents the meaning and 尚 represents the sound"). Mining CJK character mentions from this text would surface components the human author emphasized but did not include in the structured `components` field. Different from the `memodevice` approach which uses the structured field.
+- **1v1 contrastive filter** (`contrastive`) — instead of removing components shared by *all* confusables, remove only what this character shares with its *single closest* confusable (highest Jaccard). Produces the minimal discriminating set for the most dangerous confusion pair. More aggressive than `_discriminating` for components shared with the closest neighbor; answers "what makes me different from my hardest-to-distinguish lookalike?" Applies to `all_map`.
 
-- **1v1 contrastive filter** — instead of removing components shared by *all* confusables, remove only what this character shares with its *single closest* confusable (highest Jaccard). Produces the minimal discriminating set for the one pair that matters most. A different filtering strategy, not a new source; applies on top of any existing component map.
+- **Globally rare components** (`rare`) — apply a global rarity filter instead of the confusable-scoped discriminating filter: keep only `all_map` components that appear in ≤2% of the dataset characters (~60 for 2998 chars). Sort rarest-first. Does NOT use `_discriminating` — the question is "what rare structural element is this character built from globally?" Characters made entirely of common primitives (木, 口, 日) yield empty; those containing rare elements (禹, 黄, 黹) yield them first. Different signal from `_discriminating` which is locally scoped.
+
+- **Pinyin-based phonetic component** (`pinyin`) — for each character, find which `all_map` components share the same pinyin syllable (tone-stripped). No `_discriminating` filter — the phonetic carrier is intentionally the group-binding element. Detects phonetic components for 形声字 from acoustic signal alone, without MMA etymology annotations. For ideographic/pictographic characters, output is empty. Complements `family` (detects group binding structurally); `pinyin` detects it acoustically.
 
 - **Information gain** — for each character, rank components by information gain: which component, if known, most reduces uncertainty about which character this is within the confusable set? Decision-tree feature selection applied to character identity. Different from rarity-based salience — a common component shared by only 3 very confusable neighbours scores higher than a rare component shared with no confusable.
 
