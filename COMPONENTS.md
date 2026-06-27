@@ -59,60 +59,86 @@ Active files: `direct`, `all`, `hanzi`, `radical`, `memodevice`, `meaning`, `mer
 - **Memodevice** — human-curated typed decomposition from `data_memodevice.json`. Meaning-type components first, then sound, then iconic/other. Genuinely disagrees with IDS: e.g. 明=囧+月 (memodevice) vs 日+月 (IDS). Coverage: 100% of characters have entries.
 - **Meaning** — meaning-type components only from memodevice (semantic core). Strips phonetic and iconic parts; gives the component that carries the character's meaning. Coverage: ~77% of characters have at least one meaning component.
 - **Merged** — components confirmed discriminating by ≥2 of the five structural sources (direct, all, hanzi, radical, memodevice), ordered by vote count. Empty when no component reaches the ≥2 threshold.
+- **Family** — components shared by ≥50% of the character's confusables, ordered by share fraction descending. Intentionally NOT filtered by `_discriminating` — shows what BINDS the confusion group rather than what differs. Complementary to `direct`: together they tell the full story: "belongs to [family] group, distinguished by [direct]".
+- **Consensus** — strict intersection of `direct_map ∩ memodevice_map`, then `_discriminating` applied. Only components that both IDS structure and human curation independently name at the named sub-character level. When smaller than both parents (e.g. 明=`['月']` vs direct's `['日','月']` and memo's `['囧','月']`), it identifies the single most agreed-upon component.
+- **Hint** — CJK characters extracted from the free-text `hint` field in `data_memodevice.json`, in text-appearance order. Unlike all other approaches, this is **etymological**: the hint text systematically describes traditional forms and historical components (归: hint=`['歸','止','帚']` — broom+foot=return; 准: `['準','氵','隼']` — water+falcon). Answers "where did this character come from?" not "how is it structured today?".
 
 ### Approach comparison
 
 Coverage (non-empty / 2998 characters):
 
-| approach | non-empty | unique coverage |
+| approach | non-empty | uniquely covers |
 |---|---|---|
-| memodevice | 2830 (94%) | 32 chars only it covers |
+| memodevice | 2830 (94%) | 1 |
+| merged | 2758 (92%) | 0 |
 | hanzi | 2732 (91%) | 0 |
-| merged | 2758 (92%) | — |
-| direct | 2677 (89%) | 2 |
+| family | 2672 (89%) | 1 |
+| direct | 2675 (89%) | 0 |
+| hint | 2639 (88%) | **38** |
 | all | 2646 (88%) | 1 |
-| meaning | 1881 (63%) | 2 |
-| radical | 1813 (60%) | 19 |
+| consensus | 2438 (81%) | 0 |
+| meaning | 1881 (63%) | 0 |
+| radical | 1813 (60%) | 3 |
+
+`hint` uniquely covers 38 characters no other approach reaches (simple chars like 八, 九, 十, 己 that have rich etymological hints but simple modern structure).
 
 Pairwise Jaccard (average over chars where at least one approach is non-empty):
 
-| pair | Jaccard | exact match | disjoint |
+| pair | J | | pair | J |
+|---|---|---|---|---|
+| consensus vs memodevice | **0.794** | | meaning vs radical | 0.493 |
+| consensus vs direct | 0.764 | | meaning vs family | 0.464 |
+| direct vs memodevice | 0.694 | | radical vs family | 0.433 |
+| direct vs consensus | 0.764 | | consensus vs hint | 0.538 |
+| hint vs memodevice | 0.632 | | all vs memodevice | 0.473 |
+| direct vs all | 0.633 | | all vs hanzi | 0.450 |
+| direct vs hint | 0.469 | | family vs direct | 0.227 |
+| direct vs hanzi | 0.314 | | family vs memodevice | 0.263 |
+| hanzi vs family | **0.168** | | family vs all | **0.171** |
+
+**Three structural dimensions** — approaches cluster into three distinct signals:
+
+1. *Named structural level* (`direct`, `memodevice`, `consensus`): intermediate sub-characters with meaning (将, 壹, 阝). High mutual Jaccard (0.633–0.794). These are the components a human uses in a mnemonic.
+2. *Primitive level* (`hanzi`, `all`-deep): near-stroke elements (丬, 亠, 冖). Low Jaccard with named-level sources (hanzi vs family = 0.168, all vs family = 0.171).
+3. *Relational level* (`family`, `radical`, `meaning`): express a character's ROLE in its confusion group, not its internal structure. `family` = group-binding (J=0.227 with direct, 0.171 with all); `radical` = semantic type (J=0.493 with meaning).
+
+**Complementary pair: `family` + `direct`**
+
+`family` and `direct` answer opposite questions about the same confusion set:
+
+| char | family | direct | reading |
 |---|---|---|---|
-| direct vs all | 0.651 | 1139 | 98 |
-| **direct vs memodevice** | **0.690** | 1673 | 514 |
-| all vs memodevice | 0.473 | 661 | 452 |
-| all vs hanzi | 0.450 | 561 | 612 |
-| **radical vs meaning** | **0.493** | 1057 | 1086 |
-| memodevice vs meaning | 0.342 | 313 | 1208 |
-| hanzi vs memodevice | 0.324 | 619 | 1262 |
-| direct vs hanzi | 0.306 | 631 | 1390 |
-| direct vs radical | 0.211 | 96 | 1708 |
-| all vs merged | 0.782 | 1493 | 129 |
-| memodevice vs merged | 0.615 | 1012 | 264 |
-| hanzi vs merged | 0.546 | 722 | 416 |
+| 清 | 青 | 氵 | 青-family member, distinguished by water radical |
+| 情 | 青 | 忄 青 | 青-family member, distinguished by heart radical |
+| 蒋 | 艹 | 将 | grass-family member, distinguished by 将 |
+| 明 | 月 | 日 月 | moon-family member, also distinguished by 日 |
+| 认 | 讠 | 讠 人 | speech-family member, distinguished by 人 |
 
-**Decomposition level pattern** — the clearest finding is that approaches split into two granularity levels:
-- *Named sub-character level*: `direct`, `memodevice`, `meaning`, `radical` — name intermediate sub-characters that themselves have meaning (将, 壹, 恣, 阝). These are the components a human would use in a mnemonic.
-- *Primitive level*: `hanzi` — breaks those sub-characters into near-strokes (丬, 亠, 从, 十, 小). Useful for visual analysis but harder to attach meaning to.
+Together: "belongs to [family] group, identified by [direct]" — a complete confusion-pair description.
 
-`all` spans both: depth-1 gives named components, deeper levels give primitives.
+**`consensus` as reliability filter**
 
-**Where approaches disagree most** (divergence examples):
+When consensus is smaller than both parents, it identifies the single most agreed-upon component. When empty (育, 童, 祝), the two traditions completely disagree — a signal that this character's decomposition is genuinely ambiguous.
 
-| character | direct | memodevice | hanzi | radical | interpretation |
-|---|---|---|---|---|---|
-| 育 | `&CDP-8958;` 亠 厶 | ⺼ 子 | — | 月 | memodevice is clearer: flesh+child; IDS uses unnamed entity |
-| 童 | 立 里 | 東 目 辛 | — | 里 | same radical, completely different decomposition |
-| 蒋 | 将 | 艹 将 | 丬 亠 从 十 小 扌 | — | hanzi disassembles 将 into primitives; others keep it named |
-| 除 | 阝 余 | 阝 余 | 阝 人 干 小 | 阝 | all agree on 阝; hanzi breaks 余 into primitives; others keep it |
-| 懿 | 壹 恣 | 壹 恣 | 冖 冫 士 心 欠 豆 | 心 | direct+memo agree on named level; hanzi and radical drill deeper |
+| char | direct | memodevice | consensus | interpretation |
+|---|---|---|---|---|
+| 明 | 日 月 | 囧 月 | 月 | only 月 agreed on; 日 vs 囧 is a genuine disagreement |
+| 育 | 亠 厶 … | ⺼ 子 | ∅ | complete disagreement — both may be valid traditions |
+| 除 | 阝 余 | 阝 余 | 阝 余 | full agreement |
+| 膀 | 月 旁 | ⺼ 旁 | 旁 | 月/⺼ are same glyph, normalization missed; only 旁 agreed |
 
-**What each approach uniquely contributes:**
-- `direct` / `memodevice`: agree most (0.690 Jaccard) on named sub-character decomposition; diverge on complex/rare chars where IDS and human curation disagree (育, 童, 黎).
-- `hanzi`: primitive granularity — always breaks named sub-chars into strokes; max Jaccard 0.450 with any other approach; most useful when named components are shared with all confusables.
-- `radical`: single most important component (dictionary entry point); often matches `meaning` (0.493 Jaccard) since the KangXi radical IS usually the semantic component; lower coverage (60%) because radical is frequently shared across structural confusion sets.
-- `meaning`: semantic core stripped of sound/iconic parts; most sparse (~63% coverage) but highest signal-to-noise.
-- `merged` is now genuinely multi-source (was dominated by IDS, now 0.782 with `all` vs 0.868 before).
+**`hint` as etymology, not structure**
+
+`hint` is the only approach that captures **historical origin**: it systematically extracts traditional forms and historical components from the hint text.
+
+| char | hint | memodevice | what hint adds |
+|---|---|---|---|
+| 归 | 歸 止 帚 | 刂 彐 | traditional 歸 = 帚 (broom) + 止 (foot) |
+| 准 | 準 氵 隼 | 冫 隹 | traditional 準 = 氵 (water) + 隼 (falcon) |
+| 庆 | 慶 廌 心 | 广 大 | traditional 慶 = 廌 (mythical animal) + 心 (heart) |
+| 阳 | 陰 陽 阴 月 日 | 阝 日 | traditional pair 陰/陽 + their shared components |
+
+This makes `hint` the most useful for etymology-based mnemonics. Its 38 uniquely-covered characters are mostly simple modern chars (八, 九, 十) whose modern structure is too simple to yield structural components but whose hint text names their etymological origins.
 
 ---
 

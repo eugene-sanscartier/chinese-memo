@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from collections import defaultdict
 from itertools import combinations
 from hanzipy.decomposer import HanziDecomposer
@@ -7,6 +8,7 @@ from hanzipy.decomposer import HanziDecomposer
 decomposer = HanziDecomposer()
 
 NOISE = set('一丨丶丿乙亅㇆㇉㇠㇇㇒㇗㇈㇏㇖㇗𠂇𠂉⺁⺙⺮⺈⺌⻊⺊⺹⻎') | {'No glyph available'}
+_CJK_RE = re.compile(r'[⺀-鿿豈-﫿]')
 # Radical variant → canonical form.  Applied before NOISE check in _pos_leaves so that
 # IDS trees using variant radicals (⻖=left-ear, ⻏=right-ear, ⺼=meat, ⻌=walk) produce
 # the same positional features as trees written with the canonical form.
@@ -338,24 +340,29 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
       data_components_radical.json    — KangXi radical from MMA  (mma_dict)
       data_components_memodevice.json — curated typed components, meaning→sound→iconic  (memo_dict)
       data_components_meaning.json    — meaning-type components only  (memo_dict)
+      data_components_family.json     — components shared by ≥50% of confusables (group binding)
+      data_components_consensus.json  — strict direct∩memodevice intersection  (memo_dict)
+      data_components_hint.json       — CJK characters named in free-text hint field  (memo_dict)
       data_components_merged.json     — confirmed by ≥2 approaches (direct/all/hanzi/radical/memodevice)
 
     Approaches:
-      direct     — immediate structural parts from the depth-1 IDS operator; ordering follows
-                   the IDS positional reading order (left→right, top→bottom)
-      all        — full recursive ancestry from the IDS tree (superset of direct); ordered by
-                   BFS depth so shallower (more visually prominent) components come first
-      hanzi      — HanziDecomposer level-2 decomposition; an independent source that often
-                   disagrees with IDS, surfacing components the IDS tree misses
-      radical    — single KangXi radical per character from MMA; always the traditional
-                   dictionary-lookup component; culturally grounded, always exactly one entry
-      memodevice — human-curated typed decomposition from data_memodevice.json; meaning
-                   components first (semantic core), then sound, then iconic/other; often
-                   disagrees with IDS (e.g. 明=囧+月 vs IDS 日+月)
-      meaning    — meaning-type components only from memodevice; the semantic core of the
-                   character stripped of phonetic and iconic parts
-      merged     — components confirmed discriminating by ≥2 of the above sources, sorted
-                   by vote count; empty list when no component reaches the threshold
+      direct     — immediate structural parts from the depth-1 IDS operator (positional order)
+      all        — full recursive IDS ancestry (superset of direct); BFS depth-order so shallower
+                   (more visually prominent) components come first
+      hanzi      — HanziDecomposer level-2; independent source, often finer-grained than IDS
+      radical    — single KangXi radical from MMA; culturally grounded, always one entry
+      memodevice — human-curated typed decomposition; meaning→sound→iconic; often disagrees
+                   with IDS (e.g. 明=囧+月 vs IDS 日+月)
+      meaning    — meaning-type components only from memodevice; semantic core
+      family     — components shared by ≥50% of confusables; inverse of discriminating: shows
+                   what binds the confusion group rather than what differs. NOT filtered by
+                   _discriminating. Ordered by share fraction descending.
+      consensus  — strict intersection of direct∩memodevice; only components both IDS structure
+                   and human curation agree on at the named sub-character level
+      hint       — CJK characters mentioned in the free-text hint field of memodevice, in
+                   text-appearance order; captures what the human author chose to describe first
+      merged     — confirmed by ≥2 structural sources (direct/all/hanzi/radical/memodevice),
+                   vote-count order; empty when no component reaches the threshold
     """
     def _ok(x): return x not in NOISE and (len(x) != 1 or _valid_comp(x))
 
@@ -365,8 +372,9 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
             if isinstance(item, dict):
                 for children in item.values():
                     for ch in children:
-                        if isinstance(ch, str) and ch != char and ch not in seen:
-                            seen.add(ch); result += [ch]
+                        if isinstance(ch, str):
+                            ch = _RADICAL_NORM.get(ch, ch)
+                            if ch != char and ch not in seen: seen.add(ch); result += [ch]
         return result
 
     def _discriminating(char, comps_map):
@@ -392,6 +400,21 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
             elif isinstance(node, tuple):
                 queue += node[1]
         return result
+
+    def _family_shared(char, comps_map, threshold=0.5):
+        """Components of char present in ≥threshold fraction of its similar chars.
+        Ordered by share fraction descending. Unlike _discriminating, returns what IS
+        shared — the group-binding components that define the confusion family."""
+        my = set(comps_map.get(char, []))
+        if not my or not similar_idx: return []
+        similar = [s for s in (similar_idx.get(char, {}).get('similar', [])) if s in comps_map]
+        if not similar: return []
+        counts = defaultdict(int)
+        for s in similar:
+            for comp in comps_map.get(s, []):
+                if comp in my: counts[comp] += 1
+        n = len(similar)
+        return sorted((comp for comp in my if counts[comp] / n >= threshold), key=lambda x: -counts[x])
 
     # ── build structural component maps ───────────────────────────────────────
 
@@ -434,6 +457,11 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
     ]
 
     structural_maps = [direct_map, all_map, hanzi_map]
+
+    # ── family: group-binding components (NOT discriminating — shows what's shared) ──
+
+    family = {c: _family_shared(c, direct_map) for c in characters}
+    files += [('data_components_family.json', family)]
 
     # ── KangXi radical (mma_dict) ─────────────────────────────────────────────
 
@@ -483,9 +511,26 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
         meaning_map = {c: set(meaning_ordered[c]) for c in characters}
         meaning = {c: [ch for ch in meaning_ordered[c] if ch in _discriminating(c, meaning_map)] for c in characters}
 
+        # consensus: strict intersection of direct∩memodevice (positional reading order)
+        consensus_map = {c: direct_map.get(c, set()) & memo_map.get(c, set()) for c in characters}
+        consensus = {c: [ch for ch in direct_ordered[c] if ch in _discriminating(c, consensus_map)] for c in characters}
+
+        # hint: CJK characters from free-text hint field, in text-appearance order
+        hint_raw = {}
+        for c in characters:
+            hint_text = (memo_dict.get(c) or {}).get('hint', '')
+            seen, ordered = set(), []
+            for ch in _CJK_RE.findall(hint_text):
+                if ch != c and ch not in seen and _ok(ch): seen.add(ch); ordered += [ch]
+            hint_raw[c] = ordered
+        hint_map = {c: set(hint_raw[c]) for c in characters}
+        hint = {c: [ch for ch in hint_raw[c] if ch in _discriminating(c, hint_map)] for c in characters}
+
         files += [
             ('data_components_memodevice.json', memodevice),
             ('data_components_meaning.json',    meaning),
+            ('data_components_consensus.json',  consensus),
+            ('data_components_hint.json',       hint),
         ]
         structural_maps += [memo_map]
 
