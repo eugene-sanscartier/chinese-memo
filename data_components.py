@@ -350,33 +350,54 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
       data_components_hint.json        — CJK characters named in free-text hint field  (memo_dict)
       data_components_rare.json        — globally rare components (appear in ≤2% of chars), rarest first
       data_components_contrastive.json — unique vs single closest confusable only (from all_map)
-      data_components_pinyin.json      — components sharing the character's pinyin syllable  (mma_dict)
-      data_components_merged.json      — confirmed by ≥2 approaches (direct/all/hanzi/radical/memodevice)
+      data_components_pinyin.json       — components sharing the character's pinyin syllable  (mma_dict)
+      data_components_pos_inv.json      — position-invariant confusable set (bare component Jaccard)
+      data_components_mma_semantic.json — MMA etymology semantic component  (mma_dict)
+      data_components_memo_diff.json    — memodevice components absent from IDS  (memo_dict)
+      data_components_absent.json       — components present in confusables but absent from this char
+      data_components_sem_sibling.json  — discrimination within KangXi radical family  (mma_dict)
+      data_components_homophone.json    — discrimination within homophone group  (mma_dict)
+      data_components_merged.json       — confirmed by ≥2 approaches (direct/all/hanzi/radical/memodevice)
 
     Approaches:
-      direct      — immediate structural parts from the depth-1 IDS operator (positional order)
-      all         — full recursive IDS ancestry (superset of direct); BFS depth-order so shallower
-                    (more visually prominent) components come first
-      hanzi       — HanziDecomposer level-2; independent source, often finer-grained than IDS
-      radical     — single KangXi radical from MMA; culturally grounded, always one entry
-      memodevice  — typed decomposition from data_memodevice.json; meaning→sound→iconic
-      meaning     — meaning-type components only from memodevice; semantic core
-      family      — components shared by ≥50% of confusables; inverse of discriminating: shows
-                    what binds the confusion group rather than what differs. NOT filtered by
-                    _discriminating. Ordered by share fraction descending.
-      consensus   — strict intersection of direct∩memodevice; only components both IDS structure
-                    and memodevice agree on at the named sub-character level
-      hint        — CJK characters mentioned in the free-text hint field of memodevice, in
-                    text-appearance order; captures what the human author chose to describe first
-      rare        — globally rare components from all_map (appear in ≤~2% of dataset), sorted by
-                    ascending global frequency; NOT filtered by _discriminating — asks "what rare
-                    structural element is this character built from?" vs local confusable context
-      contrastive — components unique to this character vs its single closest confusable (highest
-                    Jaccard); BFS order; more targeted than _discriminating for the hardest pair
-      pinyin      — components from all_map sharing the character's pinyin syllable (tone-stripped);
-                    NOT filtered by _discriminating; detects phonetic carriers for 形声字 acoustically
-      merged      — confirmed by ≥2 structural sources (direct/all/hanzi/radical/memodevice),
-                    vote-count order; empty when no component reaches the threshold
+      direct       — immediate structural parts from the depth-1 IDS operator (positional order)
+      all          — full recursive IDS ancestry (superset of direct); BFS depth-order so shallower
+                     (more visually prominent) components come first
+      hanzi        — HanziDecomposer level-2; independent source, often finer-grained than IDS
+      radical      — single KangXi radical from MMA; culturally grounded, always one entry
+      memodevice   — typed decomposition from data_memodevice.json; meaning→sound→iconic
+      meaning      — meaning-type components only from memodevice; semantic core
+      family       — components shared by ≥50% of confusables; inverse of discriminating: shows
+                     what binds the confusion group rather than what differs. NOT filtered by
+                     _discriminating. Ordered by share fraction descending.
+      consensus    — strict intersection of direct∩memodevice; only components both IDS structure
+                     and memodevice agree on at the named sub-character level
+      hint         — CJK characters mentioned in the free-text hint field of memodevice, in
+                     text-appearance order; captures what the human author chose to describe first
+      rare         — globally rare components from all_map (appear in ≤~2% of dataset), sorted by
+                     ascending global frequency; NOT filtered by _discriminating
+      contrastive  — components unique to this character vs its single closest confusable (highest
+                     Jaccard); BFS order
+      pinyin       — components from all_map sharing the character's pinyin syllable (tone-stripped);
+                     NOT filtered by _discriminating
+      pos_inv      — builds a position-invariant confusable set (bare all_map Jaccard ≥ 0.25, no
+                     slot labels), then applies _discriminating against it; surfaces cross-slot
+                     component-sharing pairs invisible to positional similarity
+      mma_semantic — MMA etymology 'semantic' field for pictophonetic chars; with _discriminating;
+                     different from 'meaning' (memodevice source) and 'family' (structural grouping)
+      memo_diff    — components in memo_map but absent from all_map (IDS); structural reanalyses
+                     where memodevice diverges from IDS (e.g. 明: memo_diff=[囧], IDS says [日])
+      absent       — components present in ≥1 visual confusable but absent from this char; ordered
+                     by count descending (most expected absence first); NOT filtered by _discriminating
+      sem_sibling  — discrimination within KangXi radical family: confusable set = all chars sharing
+                     the same MMA radical; applies _discriminating against this semantic group; for
+                     pictophonetic chars surfaces the phonetic component (the non-radical element that
+                     differs within the radical family); uses all_map Jaccard to pick 8 closest siblings
+      homophone    — discrimination within homophone group: confusable set = all dataset chars sharing
+                     ≥1 exact pinyin reading (with tone); applies _discriminating; surfaces structural
+                     components that tell homophones apart; completely independent of visual similarity
+      merged       — confirmed by ≥2 structural sources (direct/all/hanzi/radical/memodevice),
+                     vote-count order; empty when no component reaches the threshold
     """
     def _ok(x): return x not in NOISE and (len(x) != 1 or _valid_comp(x))
 
@@ -500,6 +521,48 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
             contrastive[c] = [x for x in _bfs_leaves(c) if x in unique]
     files += [('data_components_contrastive.json', contrastive)]
 
+    # ── pos_inv: position-invariant confusable detection ─────────────────────
+    # Compute Jaccard over bare component sets (no slot labels). Use inverted index
+    # to avoid O(n²): for each char, only check chars sharing ≥1 component.
+    _comp_to_chars = defaultdict(set)
+    for c in characters:
+        for comp in all_map[c]: _comp_to_chars[comp].add(c)
+    _pos_inv_sim = {}
+    for c in characters:
+        my = all_map.get(c, set())
+        if not my: _pos_inv_sim[c] = []; continue
+        candidates = set().union(*(_comp_to_chars[comp] for comp in my)) - {c}
+        sims = sorted(((d, len(my & all_map[d]) / len(my | all_map[d])) for d in candidates if all_map.get(d)), key=lambda x: -x[1])
+        _pos_inv_sim[c] = [d for d, j in sims if j >= 0.25][:8]
+    pos_inv = {}
+    for c in characters:
+        my = all_map.get(c, set())
+        similar = [s for s in _pos_inv_sim.get(c, []) if s in all_map]
+        if not similar:
+            pos_inv[c] = [x for x in _bfs_leaves(c) if x in my]
+        else:
+            common = my.copy()
+            for s in similar: common &= all_map.get(s, set())
+            disc = my - common
+            bfs = _bfs_leaves(c)
+            pos_inv[c] = [x for x in bfs if x in disc] + sorted(disc - set(bfs))
+    files += [('data_components_pos_inv.json', pos_inv)]
+
+    # ── absent: diagnostic absences (components in confusables but not in this char) ──
+    # NOT filtered by _discriminating — the absence IS the discriminating signal.
+    # Ordered by count descending: how many confusables carry this component.
+    absent = {}
+    for c in characters:
+        my = all_map.get(c, set())
+        similar = [s for s in ((similar_idx or {}).get(c, {}).get('similar', [])) if s in all_map]
+        if not similar: absent[c] = []; continue
+        counts = defaultdict(int)
+        for s in similar:
+            for comp in all_map.get(s, set()):
+                if comp not in my and _ok(comp): counts[comp] += 1
+        absent[c] = sorted(counts.keys(), key=lambda x: -counts[x])
+    files += [('data_components_absent.json', absent)]
+
     # ── KangXi radical (mma_dict) ─────────────────────────────────────────────
 
     if mma_dict:
@@ -524,6 +587,58 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
             if not my_pinyins: pinyin_result[c] = []; continue
             pinyin_result[c] = [comp for comp in _bfs_leaves(c) if comp in _all_pinyin and _all_pinyin[comp] & my_pinyins]
         files += [('data_components_pinyin.json', pinyin_result)]
+
+        # mma_semantic: MMA etymology semantic component for pictophonetic chars; with _discriminating
+        mma_sem_ordered = {}
+        for c in characters:
+            etym = (mma_dict.get(c, {}).get('etymology') or {})
+            sem = etym.get('semantic', '') if etym.get('type') == 'pictophonetic' else ''
+            sem = _RADICAL_NORM.get(sem, sem)
+            mma_sem_ordered[c] = [sem] if sem and _ok(sem) and sem != c else []
+        mma_sem_map = {c: set(mma_sem_ordered[c]) for c in characters}
+        mma_semantic = {c: [s for s in mma_sem_ordered[c] if s in _discriminating(c, mma_sem_map)] for c in characters}
+        files += [('data_components_mma_semantic.json', mma_semantic)]
+
+        # sem_sibling: discrimination within KangXi radical family
+        # Confusable set = chars sharing the same MMA radical. Use 8 closest by all_map Jaccard
+        # so that large radical families (木 with 100+ chars) don't make every component discriminating.
+        _rad_to_chars = defaultdict(list)
+        for c in characters:
+            r = _RADICAL_NORM.get(mma_dict.get(c, {}).get('radical', ''), mma_dict.get(c, {}).get('radical', ''))
+            if r: _rad_to_chars[r] += [c]
+        sem_sibling = {}
+        for c in characters:
+            r = mma_dict.get(c, {}).get('radical', '')
+            r = _RADICAL_NORM.get(r, r)
+            if not r: sem_sibling[c] = []; continue
+            siblings = [m for m in _rad_to_chars.get(r, []) if m != c and all_map.get(m)]
+            my = all_map.get(c, set())
+            if not siblings: sem_sibling[c] = [x for x in _bfs_leaves(c) if x in my]; continue
+            closest = sorted(siblings, key=lambda m: -(len(my & all_map[m]) / len(my | all_map[m]) if my | all_map[m] else 0))[:8]
+            common = my.copy()
+            for m in closest: common &= all_map.get(m, set())
+            disc = my - common
+            bfs = _bfs_leaves(c)
+            sem_sibling[c] = [x for x in bfs if x in disc] + sorted(disc - set(bfs))
+        files += [('data_components_sem_sibling.json', sem_sibling)]
+
+        # homophone: discrimination within homophone group (chars sharing ≥1 exact pinyin reading)
+        _exact_pinyin_to_chars = defaultdict(list)
+        for c in characters:
+            for p in (mma_dict.get(c, {}).get('pinyin') or []):
+                _exact_pinyin_to_chars[p] += [c]
+        homophone = {}
+        for c in characters:
+            my_pinyins = mma_dict.get(c, {}).get('pinyin') or []
+            homophones = {h for p in my_pinyins for h in _exact_pinyin_to_chars.get(p, []) if h != c and all_map.get(h)}
+            my = all_map.get(c, set())
+            if not homophones: homophone[c] = []; continue
+            common = my.copy()
+            for h in homophones: common &= all_map.get(h, set())
+            disc = my - common
+            bfs = _bfs_leaves(c)
+            homophone[c] = [x for x in bfs if x in disc] + sorted(disc - set(bfs))
+        files += [('data_components_homophone.json', homophone)]
 
     # ── memodevice typed components (memo_dict) ───────────────────────────────
 
@@ -575,11 +690,17 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
         hint_map = {c: set(hint_raw[c]) for c in characters}
         hint = {c: [ch for ch in hint_raw[c] if ch in _discriminating(c, hint_map)] for c in characters}
 
+        # memo_diff: memodevice components absent from IDS recursive ancestry
+        memo_diff_map = {c: memo_map.get(c, set()) - all_map.get(c, set()) for c in characters}
+        memo_diff_ordered = {c: [ch for ch in memo_ordered[c] if ch in memo_diff_map[c]] for c in characters}
+        memo_diff = {c: [ch for ch in memo_diff_ordered[c] if ch in _discriminating(c, memo_diff_map)] for c in characters}
+
         files += [
             ('data_components_memodevice.json', memodevice),
             ('data_components_meaning.json',    meaning),
             ('data_components_consensus.json',  consensus),
             ('data_components_hint.json',       hint),
+            ('data_components_memo_diff.json',  memo_diff),
         ]
         structural_maps += [memo_map]
 
