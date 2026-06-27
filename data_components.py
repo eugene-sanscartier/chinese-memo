@@ -324,7 +324,7 @@ def build_char_index(characters, ids_dict, mma_dict=None, char_dict=None, thresh
 
 # ── per-approach component files ─────────────────────────────────────────────
 
-def write_component_files(characters, ids_dict, similar_idx=None, output_dir='.'):
+def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None, memo_dict=None, output_dir='.'):
     """Build a set of components for each character using multiple decomposition approaches.
 
     Each approach produces a {char: [comp, ...]} JSON file. Components are filtered to
@@ -332,20 +332,30 @@ def write_component_files(characters, ids_dict, similar_idx=None, output_dir='.'
     components shared by ALL neighbours are excluded.
 
     Output:
-      data_components_direct.json   — depth-1 IDS children, positional reading order
-      data_components_all.json      — full recursive IDS component set, BFS depth-order
-      data_components_hanzi.json    — HanziDecomposer level-2 (independent source)
-      data_components_merged.json   — confirmed by ≥2 approaches, vote-count order
+      data_components_direct.json     — depth-1 IDS children, positional reading order
+      data_components_all.json        — full recursive IDS component set, BFS depth-order
+      data_components_hanzi.json      — HanziDecomposer level-2 (independent source)
+      data_components_radical.json    — KangXi radical from MMA  (mma_dict)
+      data_components_memodevice.json — curated typed components, meaning→sound→iconic  (memo_dict)
+      data_components_meaning.json    — meaning-type components only  (memo_dict)
+      data_components_merged.json     — confirmed by ≥2 approaches (direct/all/hanzi/radical/memodevice)
 
     Approaches:
-      direct  — immediate structural parts from the depth-1 IDS operator; ordering follows
-                the IDS positional reading order (left→right, top→bottom)
-      all     — full recursive ancestry from the IDS tree (superset of direct); ordered by
-                BFS depth so shallower (more visually prominent) components come first
-      hanzi   — HanziDecomposer level-2 decomposition; an independent source that often
-                disagrees with IDS, surfacing components the IDS tree misses
-      merged  — components confirmed discriminating by ≥2 of the above approaches, sorted
-                by vote count; empty list when no component reaches the threshold
+      direct     — immediate structural parts from the depth-1 IDS operator; ordering follows
+                   the IDS positional reading order (left→right, top→bottom)
+      all        — full recursive ancestry from the IDS tree (superset of direct); ordered by
+                   BFS depth so shallower (more visually prominent) components come first
+      hanzi      — HanziDecomposer level-2 decomposition; an independent source that often
+                   disagrees with IDS, surfacing components the IDS tree misses
+      radical    — single KangXi radical per character from MMA; always the traditional
+                   dictionary-lookup component; culturally grounded, always exactly one entry
+      memodevice — human-curated typed decomposition from data_memodevice.json; meaning
+                   components first (semantic core), then sound, then iconic/other; often
+                   disagrees with IDS (e.g. 明=囧+月 vs IDS 日+月)
+      meaning    — meaning-type components only from memodevice; the semantic core of the
+                   character stripped of phonetic and iconic parts
+      merged     — components confirmed discriminating by ≥2 of the above sources, sorted
+                   by vote count; empty list when no component reaches the threshold
     """
     def _ok(x): return x not in NOISE and (len(x) != 1 or _valid_comp(x))
 
@@ -425,6 +435,60 @@ def write_component_files(characters, ids_dict, similar_idx=None, output_dir='.'
 
     structural_maps = [direct_map, all_map, hanzi_map]
 
+    # ── KangXi radical (mma_dict) ─────────────────────────────────────────────
+
+    if mma_dict:
+        radical_ordered = {}
+        for c in characters:
+            r = mma_dict.get(c, {}).get('radical', '')
+            r = _RADICAL_NORM.get(r, r)
+            radical_ordered[c] = [r] if r and _ok(r) and r != c else []
+        radical_map = {c: set(radical_ordered[c]) for c in characters}
+        radical = {c: [r for r in radical_ordered[c] if r in _discriminating(c, radical_map)] for c in characters}
+        files += [('data_components_radical.json', radical)]
+        structural_maps += [radical_map]
+
+    # ── memodevice typed components (memo_dict) ───────────────────────────────
+
+    if memo_dict:
+        # memodevice: all curated components in meaning → sound → iconic order
+        memo_ordered = {}
+        for c in characters:
+            comps = (memo_dict.get(c) or {}).get('components') or []
+            ordered, seen = [], set()
+            for p_types in [['meaning'], ['sound'], None]:
+                for comp in comps:
+                    ch = comp.get('character', '')
+                    types = comp.get('type', [])
+                    if not ch or ch == c or ch in seen or not _ok(ch): continue
+                    if p_types is None or any(t in p_types for t in types):
+                        seen.add(ch); ordered += [ch]
+            memo_ordered[c] = ordered
+        memo_map = {c: set(memo_ordered[c]) for c in characters}
+        memodevice = {}
+        for c in characters:
+            disc = _discriminating(c, memo_map)
+            memodevice[c] = [ch for ch in memo_ordered[c] if ch in disc]
+
+        # meaning: meaning-type components only (semantic core)
+        meaning_ordered = {}
+        for c in characters:
+            comps = (memo_dict.get(c) or {}).get('components') or []
+            seen, raw = set(), []
+            for comp in comps:
+                ch = comp.get('character', '')
+                if 'meaning' in comp.get('type', []) and ch and ch != c and ch not in seen and _ok(ch):
+                    seen.add(ch); raw += [ch]
+            meaning_ordered[c] = raw
+        meaning_map = {c: set(meaning_ordered[c]) for c in characters}
+        meaning = {c: [ch for ch in meaning_ordered[c] if ch in _discriminating(c, meaning_map)] for c in characters}
+
+        files += [
+            ('data_components_memodevice.json', memodevice),
+            ('data_components_meaning.json',    meaning),
+        ]
+        structural_maps += [memo_map]
+
     # ── merged: by vote count descending (most-confirmed component first) ─────
 
     merged = {}
@@ -468,5 +532,7 @@ if __name__ == "__main__":
     print("\nBuilding global index (fingerprint + joint identity)...")
     idx = build_char_index(characters, ids_dict, mma_dict=mma_dict, char_dict=char_dict)
 
+    memo_dict = {e['character']: e for g in data.values() for e in g}
+
     print("\nWriting per-approach component files...")
-    write_component_files(characters, ids_dict, similar_idx=idx, output_dir=OUT)
+    write_component_files(characters, ids_dict, similar_idx=idx, mma_dict=mma_dict, memo_dict=memo_dict, output_dir=OUT)
