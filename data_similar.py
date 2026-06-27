@@ -1209,7 +1209,7 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
     if word_freq:
         left_p = defaultdict(set); right_p = defaultdict(set)
         for word, freq in word_freq.items():
-            if len(word) == 2 and freq >= 500:
+            if len(word) == 2 and int(freq) >= 500:
                 left_p[word[0]].add(word[1]); right_p[word[1]].add(word[0])
         compound_map = {c: left_p[c] | right_p[c] for c in characters}
         compound = {c: _discriminating(c, compound_map) for c in characters}
@@ -1320,22 +1320,6 @@ if __name__ == "__main__":
     OUT = 'data_similar'
     os.makedirs(OUT, exist_ok=True)
 
-    filenames = {'disc': f'{OUT}/data_similar_disc.json', 'useful': f'{OUT}/data_similar_useful.json', 'pos': f'{OUT}/data_similar_pos.json'}
-
-    for mode in ('disc', 'useful', 'pos'):
-        groups = find_similar_chars(characters, ids_dict, mode=mode)
-        print(f"\n── {mode} mode  ({len(groups)} groups) ──")
-        for g in groups[:8]:
-            print(f"  shared [{' '.join(g['shared'])}]")
-            for m in g['members']:
-                comp_str = ' '.join(m['components']) if m['components'] else '—'
-                note = f"  ← subset of {''.join(m.get('subset_of', []))}  IDS={m.get('ids_str','')}" if 'subset_of' in m else ''
-                print(f"    {m['char']}  {comp_str}{note}")
-            print()
-        with open(filenames[mode], "w", encoding="utf-8") as f:
-            json.dump(groups, f, ensure_ascii=False, indent=2)
-        print(f"Saved to {filenames[mode]}")
-
     print("\nLoading MMA and char dictionaries...")
     mma_lines = open('dictionary_makemeahanzi.txt', encoding='utf-8').readlines()
     mma_dict = {d['character']: d for d in (json.loads(l) for l in mma_lines) if d.get('character')}
@@ -1348,192 +1332,11 @@ if __name__ == "__main__":
     print("\nBuilding global index (fingerprint + joint identity)...")
     idx = build_char_index(characters, ids_dict, mma_dict=mma_dict, char_dict=char_dict)
 
-    # Stats
-    from collections import Counter
-    id_dist = Counter(e['identity'] for e in idx.values())
-    print(f"  identity distribution: {dict(id_dist)}")
-
-    # Sample output
-    print("\n── global index (sample) ──")
-    sample = ['横', '间', '问', '棒', '棱', '常', '党', '披', '波', '超', '清', '情', '请']
-    for char in sample:
-        if char not in idx: continue
-        e = idx[char]
-        gf = ' '.join(e['components']) if e['components'] else '—'
-        ji = ' & '.join(e['joint']) if e['joint'] else '—'
-        sim = ''.join(e['similar'][:5])
-        ct_str = '; '.join(f"{c['vs']}:{c['slot']}={c['theirs']}" for c in e.get('contrasts', [])[:3])
-        ph_fam = e.get('phonetic_family', [])
-        ph_str = f"  phonetic={e['phonetic']} family={''.join(m['char'] for m in ph_fam[:6])}" if 'phonetic' in e else ''
-        etym = e.get('etymology', {})
-        etym_str = f"  [{etym.get('type','?')}] {etym.get('hint','')}({etym.get('semantic','')})→{etym.get('phonetic','')}" if etym else ''
-        sc_str = f"  sc={e.get('stroke_count','')} hsk={e.get('hsk_level','')}"
-        print(f"  {char}  disc=[{gf}]  joint=[{ji}]  type={e['identity']}  similar={sim}{ph_str}{etym_str}{sc_str}")
-        if ct_str: print(f"       contrasts: {ct_str}")
-
-    with open(f'{OUT}/data_similar_global.json', 'w', encoding='utf-8') as f:
-        json.dump(idx, f, ensure_ascii=False, indent=2)
-    print(f"\nSaved to {OUT}/data_similar_global.json")
-
-    print("\nBuilding hybrid index (IDS positions + HanziDecomposer components)...")
-    hybrid_idx = build_hybrid_char_index(characters, ids_dict)
-    hybrid_id_dist = Counter(e['identity'] for e in hybrid_idx.values())
-    print(f"  identity distribution: {dict(hybrid_id_dist)}")
-
-    print("\n── hybrid index (sample) ──")
-    for char in sample:
-        if char not in hybrid_idx: continue
-        e = hybrid_idx[char]
-        gf = ' '.join(e['components']) if e['components'] else '—'
-        ji = ' & '.join(e['joint']) if e['joint'] else '—'
-        sim = ''.join(e['similar'][:5])
-        ct_str = '; '.join(f"{c['vs']}:{c['slot']}={c['theirs']}" for c in e.get('contrasts', [])[:3])
-        hct_str = '; '.join(f"{c['vs']}:C={c['theirs']}" for c in e.get('component_contrasts', [])[:3])
-        print(f"  {char}  disc=[{gf}]  joint=[{ji}]  type={e['identity']}  similar={sim}")
-        if ct_str: print(f"       slot contrasts: {ct_str}")
-        if hct_str: print(f"       component contrasts: {hct_str}")
-
-    with open(f'{OUT}/data_similar_hybrid.json', 'w', encoding='utf-8') as f:
-        json.dump(hybrid_idx, f, ensure_ascii=False, indent=2)
-    print(f"\nSaved to {OUT}/data_similar_hybrid.json")
-
-    print("\nBuilding pinyin cross-modal index...")
-    pinyin_idx = build_pinyin_index(characters, ids_dict, mma_dict)
-    dd_count = sum(1 for e in pinyin_idx.values() if e.get('double_danger'))
-    homo_count = sum(1 for e in pinyin_idx.values() if e.get('homophones'))
-    print(f"  double_danger chars: {dd_count}, chars with homophones: {homo_count}")
-    print("\n── pinyin index (sample) ──")
-    for char in ['清','情','晴','胃','畏','候','侯','己','已','常']:
-        if char not in pinyin_idx: continue
-        e = pinyin_idx[char]
-        py_str = ','.join((mma_dict.get(char) or {}).get('pinyin', []))
-        dd_str = ''.join(e.get('double_danger', []))
-        homo_str = ''.join(e.get('homophones', []))
-        near_str = ''.join(e.get('near_homophones', [])[:4])
-        print(f"  {char}[{py_str}]  double_danger={dd_str}  homophones={homo_str}  near={near_str}")
-    with open(f'{OUT}/data_similar_pinyin.json', 'w', encoding='utf-8') as f:
-        json.dump(pinyin_idx, f, ensure_ascii=False, indent=2)
-    print(f"\nSaved to {OUT}/data_similar_pinyin.json")
-
-    print("\nBuilding visual pixel index (edge features)...")
-    font_path = '_LXGWWenKaiGBLite-Regular.ttf'
-    visual_idx = build_visual_index(characters, ids_dict, font_path)
-    vis_only_count = sum(1 for e in visual_idx.values() if e.get('visual_only'))
-    print(f"  chars with visual-only (non-IDS) similar chars: {vis_only_count}")
-    print("\n── visual index (sample) ──")
-    for char in ['清','情','胃','畏','候','侯','己','已','巳']:
-        if char not in visual_idx: continue
-        e = visual_idx[char]
-        sim_str = ''.join(e.get('similar', [])[:6])
-        vo_str = ''.join(e.get('visual_only', []))
-        es_str = ' '.join(f"{c}:{s}" for c,s in list(e.get('edge_sim', {}).items())[:4])
-        print(f"  {char}  similar={sim_str}  visual_only={vo_str}")
-        if es_str: print(f"       edge_sims: {es_str}")
-    with open(f'{OUT}/data_similar_visual.json', 'w', encoding='utf-8') as f:
-        json.dump(visual_idx, f, ensure_ascii=False, indent=2)
-    print(f"\nSaved to {OUT}/data_similar_visual.json")
-
-    print("\nBuilding radical cluster index...")
-    radical_idx = build_radical_cluster_index(characters, ids_dict)
-    cluster_only_count = sum(1 for e in radical_idx.values() if e.get('cluster_only'))
-    print(f"  chars with cluster-only (cross-radical) new similar chars: {cluster_only_count}")
-    id_dist_r = Counter(e['identity'] for e in radical_idx.values())
-    print(f"  identity distribution: {dict(id_dist_r)}")
-    print("\n── radical cluster index (sample) ──")
-    for char in ['清','冷','情','快','忆','说','话','银','铜']:
-        if char not in radical_idx: continue
-        e = radical_idx[char]
-        sim_str = ''.join(e.get('similar', [])[:6])
-        co_str = ''.join(e.get('cluster_only', []))
-        gf = ' '.join(e['components']) if e['components'] else '—'
-        print(f"  {char}  disc=[{gf}]  similar={sim_str}  cluster_only={co_str}")
-    with open(f'{OUT}/data_similar_radical.json', 'w', encoding='utf-8') as f:
-        json.dump(radical_idx, f, ensure_ascii=False, indent=2)
-    print(f"\nSaved to {OUT}/data_similar_radical.json")
-
-    print("\nBuilding position-agnostic subcomponent index...")
-    subcomp_idx = build_subcomp_index(characters, ids_dict)
-    sc_sim_count = sum(1 for e in subcomp_idx.values() if e.get('subcomp_similar'))
-    sc_only_count = sum(1 for e in subcomp_idx.values() if e.get('subcomp_only'))
-    print(f"  chars with subcomp_similar: {sc_sim_count}")
-    print(f"  chars with subcomp_only (not IDS): {sc_only_count}")
-    print("\n── subcomp index (sample) ──")
-    for char in ['削', '梢', '案', '按', '含', '吟', '想', '湘', '箱', '哥', '呵', '塑', '溯', '威', '咸']:
-        if char not in subcomp_idx: continue
-        e = subcomp_idx[char]
-        sim = ''.join(e.get('subcomp_similar', [])[:6])
-        only = ''.join(e.get('subcomp_only', [])[:4])
-        shared = {k: v for k, v in e.get('subcomp_shared', {}).items()}
-        print(f"  {char}: sim={sim}  only={only}  shared={shared}")
-    with open(f'{OUT}/data_similar_subcomp.json', 'w', encoding='utf-8') as f:
-        json.dump(subcomp_idx, f, ensure_ascii=False, indent=2)
-    print(f"\nSaved to {OUT}/data_similar_subcomp.json")
-
     import warnings; warnings.filterwarnings('ignore')
     import logging; logging.disable(logging.CRITICAL)
     from hanzipy.dictionary import HanziDictionary
     word_freq = HanziDictionary().word_freq
     char_to_entry = {e['character']: e for g in data.values() for e in g}
-
-    print("\nBuilding compound word context index...")
-    compound_idx = build_compound_index(characters, ids_dict, word_freq)
-    comp_sim_count = sum(1 for e in compound_idx.values() if e.get('compound_similar'))
-    comp_only_count = sum(1 for e in compound_idx.values() if e.get('compound_only'))
-    print(f"  chars with compound_similar: {comp_sim_count}")
-    print(f"  chars with compound_only (not IDS): {comp_only_count}")
-    print("\n── compound index (sample) ──")
-    for char in ['早','晚','他','她','做','作','清','情','已','己','大','太','干','千']:
-        if char not in compound_idx: continue
-        e = compound_idx[char]
-        lc = ','.join(e.get('left_compounds', [])[:4])
-        rc = ','.join(e.get('right_compounds', [])[:4])
-        cs = ''.join(e.get('compound_similar', [])[:6])
-        co = ''.join(e.get('compound_only', [])[:4])
-        print(f"  {char}: L=[{lc}] R=[{rc}] sim={cs} only={co}")
-        for b, pats in list(e.get('shared_patterns', {}).items())[:2]:
-            sl = ''.join(pats.get('left', []))
-            sr = ''.join(pats.get('right', []))
-            if sl: print(f"       shared_L with {b}: {sl}")
-            if sr: print(f"       shared_R with {b}: {sr}")
-    with open(f'{OUT}/data_similar_compound.json', 'w', encoding='utf-8') as f:
-        json.dump(compound_idx, f, ensure_ascii=False, indent=2)
-    print(f"\nSaved to {OUT}/data_similar_compound.json")
-
-    print("\nBuilding semantic synonym index...")
-    semantic_idx = build_semantic_index(characters, ids_dict, char_to_entry)
-    sem_group_count = sum(1 for e in semantic_idx.values() if e.get('gloss_group'))
-    sem_only_count = sum(1 for e in semantic_idx.values() if e.get('semantic_only'))
-    print(f"  chars with gloss_group: {sem_group_count}")
-    print(f"  chars with semantic_only (not IDS): {sem_only_count}")
-    print("\n── semantic index (sample) ──")
-    for char in ['清', '晰', '楚', '己', '自', '已', '曾', '既', '明', '亮', '早', '晚', '夜']:
-        if char not in semantic_idx: continue
-        e = semantic_idx[char]
-        g = e.get('gloss', '—')
-        grp = ''.join(e.get('gloss_group', []))
-        so = ''.join(e.get('semantic_only', []))
-        print(f"  {char} [{g}]  group={grp}  semantic_only={so}")
-    with open(f'{OUT}/data_similar_semantic.json', 'w', encoding='utf-8') as f:
-        json.dump(semantic_idx, f, ensure_ascii=False, indent=2)
-    print(f"\nSaved to {OUT}/data_similar_semantic.json")
-
-    print("\nBuilding deep component ancestry index...")
-    deepcomp_idx = build_deepcomp_index(characters, ids_dict)
-    deep_sim_count = sum(1 for e in deepcomp_idx.values() if e.get('deep_similar'))
-    deep_only_count = sum(1 for e in deepcomp_idx.values() if e.get('deep_only'))
-    print(f"  chars with deep_similar: {deep_sim_count}")
-    print(f"  chars with deep_only (not IDS or subcomp): {deep_only_count}")
-    print("\n── deep component index (sample) ──")
-    for char in ['骑', '荷', '歌', '啊', '寄', '崎', '颤', '堤', '宣', '恒', '喜', '凳', '禧', '躁', '藻']:
-        if char not in deepcomp_idx: continue
-        e = deepcomp_idx[char]
-        dc = ''.join(e.get('deep_components', []))
-        ds = ''.join(e.get('deep_similar', [])[:6])
-        do = ''.join(e.get('deep_only', [])[:4])
-        print(f"  {char}: deep={dc}  sim={ds}  only={do}")
-    with open(f'{OUT}/data_similar_deepcomp.json', 'w', encoding='utf-8') as f:
-        json.dump(deepcomp_idx, f, ensure_ascii=False, indent=2)
-    print(f"\nSaved to {OUT}/data_similar_deepcomp.json")
 
     print("\nWriting per-approach component files...")
     write_component_files(characters, ids_dict,
