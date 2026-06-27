@@ -1106,25 +1106,24 @@ def build_deepcomp_index(characters, ids_dict, threshold=0.4):
 # ── per-approach component files ─────────────────────────────────────────────
 
 def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None, word_freq=None, char_to_entry=None, output_dir='.'):
-    """For each character write a {char: [comp, ...]} JSON file per approach.
+    """For each character write a {char: [comp, ...]} JSON file per decomposition approach.
 
-    Each file contains the components that *distinguish* the character from its
-    visually similar neighbours (those in similar_idx[char]['similar']).
-    Components shared by ALL similar chars are excluded — only the varying ones
-    (the discriminating features) are kept.
+    Each file contains the components that distinguish the character from its visually
+    similar neighbours (from similar_idx). Components shared by ALL similar chars are
+    excluded — only the varying ones are kept.
 
     Files written (require only ids_dict):
       data_components_direct.json      — direct IDS children (depth-1)
       data_components_deep.json        — depth-2+ complex sub-components
-      data_components_all.json         — full recursive IDS component set
-      data_components_positional.json  — component names from positional features
-      data_components_radical.json     — abstract cluster labels (L=DRIP, R=HAND)
+      data_components_all.json         — full recursive IDS component set (superset of direct+deep)
+      data_components_positional.json  — components extracted from IDS positional parse
       data_components_hanzi.json       — HanziDecomposer level-2 components
 
     Files written when optional sources are supplied:
-      data_components_phonetic.json    — MMA etymology phonetic + semantic  (mma_dict)
-      data_components_compound.json    — frequent compound word partners     (word_freq)
-      data_components_semantic.json    — same-gloss synonym chars            (char_to_entry)
+      data_components_phonetic.json    — MMA etymology phonetic + semantic     (mma_dict)
+      data_components_compound.json    — distinctive compound word partners     (word_freq)
+      data_components_semantic.json    — keyword-matched semantic synonym chars (char_to_entry)
+      data_components_merged.json      — components confirmed by ≥2 structural approaches
     """
     def _ok(x): return x not in NOISE and (len(x) != 1 or _valid_comp(x))
 
@@ -1154,7 +1153,7 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
         slot = feat.split('=')[0].split('.')[0] if '=' in feat else ''
         return _SLOT_ORDER.get(slot, 99)
 
-    # ── build component maps ──────────────────────────────────────────────────
+    # ── build structural component maps ───────────────────────────────────────
 
     char_direct_set = {c: _direct_set(c) for c in characters}
 
@@ -1167,17 +1166,8 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
     all_map = {c: set(x for x in (ids_dict.get(c, {}).get('components', []) or []) if x != c and _ok(x)) for c in characters}
     all_recursive = {c: _discriminating(c, all_map) for c in characters}
 
-    def _pos_component_set(char):
-        seen = set()
-        for f in sorted(get_pos_feats(char, ids_dict), key=_slot_rank):
-            comp = f.split('=', 1)[1] if '=' in f else f
-            seen.add(comp)
-        return seen
-    positional_map = {c: _pos_component_set(c) for c in characters}
+    positional_map = {c: set(f.split('=', 1)[1] if '=' in f else f for f in get_pos_feats(c, ids_dict)) for c in characters}
     positional = {c: _discriminating(c, positional_map) for c in characters}
-
-    radical_map = {c: _get_cluster_feats(c, ids_dict) for c in characters}
-    radical = {c: _discriminating(c, radical_map) for c in characters}
 
     hanzi_map = {}
     for c in characters:
@@ -1191,9 +1181,12 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
         ('data_components_deep.json',        deep),
         ('data_components_all.json',         all_recursive),
         ('data_components_positional.json',  positional),
-        ('data_components_radical.json',     radical),
         ('data_components_hanzi.json',       hanzi),
     ]
+
+    structural_maps = [direct_map, deep_map, all_map, positional_map, hanzi_map]
+
+    # ── optional sources ──────────────────────────────────────────────────────
 
     if mma_dict:
         phonetic_map = {}
@@ -1205,24 +1198,44 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
             phonetic_map[c] = comps
         phonetic = {c: _discriminating(c, phonetic_map) for c in characters}
         files += [('data_components_phonetic.json', phonetic)]
+        structural_maps.append(phonetic_map)
 
     if word_freq:
-        left_p = defaultdict(set); right_p = defaultdict(set)
+        # Keep only distinctive partners: those that co-occur with ≤ df_max different characters.
+        # Common partners (like 的, 了) co-occur with hundreds of characters and don't discriminate.
+        df_max = 30
+        left_p = defaultdict(set); right_p = defaultdict(set); partner_df = defaultdict(set)
         for word, freq in word_freq.items():
-            if len(word) == 2 and int(freq) >= 500:
+            if len(word) == 2 and int(freq) >= 200:
                 left_p[word[0]].add(word[1]); right_p[word[1]].add(word[0])
-        compound_map = {c: left_p[c] | right_p[c] for c in characters}
+                partner_df[word[1]].add(word[0]); partner_df[word[0]].add(word[1])
+        compound_map = {c: {p for p in (left_p[c] | right_p[c]) if len(partner_df[p]) <= df_max} for c in characters}
         compound = {c: _discriminating(c, compound_map) for c in characters}
         files += [('data_components_compound.json', compound)]
 
     if char_to_entry:
-        gloss_to_chars = defaultdict(list)
-        for c in characters:
-            g = char_to_entry.get(c, {}).get('gloss', '').strip().lower()
-            if g: gloss_to_chars[g] += [c]
-        semantic_map = {c: set(gloss_to_chars.get(char_to_entry.get(c, {}).get('gloss', '').strip().lower(), [])) - {c} for c in characters}
+        # Group characters by shared gloss keywords rather than exact gloss string,
+        # catching near-synonyms like "clear / clarity / clearly".
+        _STOP = {'to', 'a', 'an', 'the', 'of', 'for', 'in', 'on', 'at', 'be', 'is', 'are', 'and', 'or', 'not'}
+        def _keywords(c): return {w for w in char_to_entry.get(c, {}).get('gloss', '').lower().split() if w not in _STOP and len(w) > 1}
+        kw_to_chars = defaultdict(set)
+        char_kws = {c: _keywords(c) for c in characters}
+        for c, kws in char_kws.items():
+            for kw in kws: kw_to_chars[kw].add(c)
+        semantic_map = {c: (set().union(*(kw_to_chars[kw] for kw in char_kws[c])) - {c}) if char_kws[c] else set() for c in characters}
         semantic = {c: _discriminating(c, semantic_map) for c in characters}
         files += [('data_components_semantic.json', semantic)]
+
+    # ── merged: components confirmed by ≥2 structural approaches ─────────────
+
+    merged = {}
+    for c in characters:
+        counts = defaultdict(int)
+        for m in structural_maps:
+            for comp in _discriminating(c, m): counts[comp] += 1
+        reliable = sorted(comp for comp, n in counts.items() if n >= 2)
+        merged[c] = reliable if reliable else sorted(counts.keys())
+    files += [('data_components_merged.json', merged)]
 
     for filename, data in files:
         with open(os.path.join(output_dir, filename), 'w', encoding='utf-8') as f:
