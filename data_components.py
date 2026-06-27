@@ -452,7 +452,7 @@ if __name__ == "__main__":
     characters = [e['character'] for g in data.values() for e in g]
     print(f"Processing {len(characters)} characters...")
 
-    OUT = 'data_similar'
+    OUT = 'data_components'
     os.makedirs(OUT, exist_ok=True)
 
     print("\nLoading MMA and char dictionaries...")

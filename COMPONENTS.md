@@ -27,9 +27,9 @@ The output of each approach is filtered to the components that vary among the ch
 | variable | file | contains |
 |---|---|---|
 | `ids_dict` | `ids_dictionary.json` | `ids` string, `components` (full recursive list), `decomposition` (depth-1 structured children) |
-| `mma_dict` | `dictionary_makemeahanzi.txt` | etymology (`type`, `phonetic`, `semantic`, `hint`), `pinyin`, stroke count |
+| `mma_dict` | `dictionary_makemeahanzi.txt` | `decomposition`, `radical`, etymology (`type`, `phonetic`, `semantic`, `hint`), `pinyin`, stroke count |
 | `decomposer` | `HanziDecomposer()` | level-2 component decomposition (independent source, often disagrees with IDS) |
-| `char_dict` | `dictionary_char.jsonl` | `strokeCount`, HSK level, corpus frequency rank, `gloss` |
+| `char_dict` | `dictionary_char.jsonl` | `components`, `strokeCount`, HSK level, corpus frequency rank, `gloss` |
 
 ## Current output — `data_similar/data_components_*.json`
 
