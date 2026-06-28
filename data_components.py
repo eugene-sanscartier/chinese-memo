@@ -355,8 +355,11 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
       data_components_mma_semantic.json — MMA etymology semantic component  (mma_dict)
       data_components_memo_diff.json    — memodevice components absent from IDS  (memo_dict)
       data_components_absent.json       — components present in confusables but absent from this char
+      data_components_hsk_anchor.json   — discriminating all_map components with HSK level, by level order
       data_components_sem_sibling.json  — discrimination within KangXi radical family  (mma_dict)
+      data_components_sem_absent.json   — components in radical siblings absent from this char  (mma_dict)
       data_components_homophone.json    — discrimination within homophone group  (mma_dict)
+      data_components_phonetic_scope.json — discrimination within tone-stripped syllable group  (mma_dict)
       data_components_merged.json       — confirmed by ≥2 approaches (direct/all/hanzi/radical/memodevice)
 
     Approaches:
@@ -389,13 +392,25 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
                      where memodevice diverges from IDS (e.g. 明: memo_diff=[囧], IDS says [日])
       absent       — components present in ≥1 visual confusable but absent from this char; ordered
                      by count descending (most expected absence first); NOT filtered by _discriminating
+      hsk_anchor   — discriminating components (from all_map) that are themselves HSK vocabulary
+                     (have hsk_level in similar_idx); ordered by HSK level ascending; no new components,
+                     just a knowledge-state filter: which discriminating component does the learner
+                     already know as a vocabulary word?
       sem_sibling  — discrimination within KangXi radical family: confusable set = all chars sharing
                      the same MMA radical; applies _discriminating against this semantic group; for
                      pictophonetic chars surfaces the phonetic component (the non-radical element that
                      differs within the radical family); uses all_map Jaccard to pick 8 closest siblings
+      sem_absent   — complement to sem_sibling: components present in radical siblings' all_maps but
+                     absent from this char; ordered by how many siblings carry them; NOT filtered by
+                     _discriminating; gives the phonetic landscape of the radical family that C isn't
+                     part of
       homophone    — discrimination within homophone group: confusable set = all dataset chars sharing
                      ≥1 exact pinyin reading (with tone); applies _discriminating; surfaces structural
                      components that tell homophones apart; completely independent of visual similarity
+      phonetic_scope — discrimination within tone-stripped syllable group: confusable set = all chars
+                     sharing the same initial+final (any tone); broader than homophone (4 tone groups
+                     merged); applies _discriminating; bridges between homophone (tight) and broader
+                     phonetic families
       merged       — confirmed by ≥2 structural sources (direct/all/hanzi/radical/memodevice),
                      vote-count order; empty when no component reaches the threshold
     """
@@ -563,6 +578,21 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
         absent[c] = sorted(counts.keys(), key=lambda x: -counts[x])
     files += [('data_components_absent.json', absent)]
 
+    # ── hsk_anchor: discriminating components that are themselves HSK vocabulary ──
+    # Filter: component must have hsk_level in similar_idx (i.e., it's a standalone vocab word).
+    # Excludes radical forms (氵, 阝, etc.) that aren't in the study set; keeps named chars (马, 青, etc.).
+    hsk_anchor = {}
+    for c in characters:
+        disc = _discriminating(c, all_map)
+        if not disc: hsk_anchor[c] = []; continue
+        comp_hsk = []
+        for comp in disc:
+            lvl = ((similar_idx or {}).get(comp, {}).get('hsk_level')) if similar_idx else None
+            if lvl: comp_hsk += [(lvl, comp)]
+        comp_hsk.sort()
+        hsk_anchor[c] = [comp for _, comp in comp_hsk]
+    files += [('data_components_hsk_anchor.json', hsk_anchor)]
+
     # ── KangXi radical (mma_dict) ─────────────────────────────────────────────
 
     if mma_dict:
@@ -639,6 +669,45 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
             bfs = _bfs_leaves(c)
             homophone[c] = [x for x in bfs if x in disc] + sorted(disc - set(bfs))
         files += [('data_components_homophone.json', homophone)]
+
+        # phonetic_scope: discrimination within tone-stripped syllable group
+        # Broader than homophone (ignores tone); different from pinyin (finds carrier, not discriminator).
+        _syllable_to_chars = defaultdict(list)
+        for c in characters:
+            for p in (mma_dict.get(c, {}).get('pinyin') or []):
+                syl = _strip_tone(p)
+                if syl: _syllable_to_chars[syl] += [c]
+        phonetic_scope = {}
+        for c in characters:
+            my_sylls = {_strip_tone(p) for p in (mma_dict.get(c, {}).get('pinyin') or [])}
+            phoneme_grp = {h for syl in my_sylls for h in _syllable_to_chars.get(syl, []) if h != c and all_map.get(h)}
+            my = all_map.get(c, set())
+            if not phoneme_grp: phonetic_scope[c] = []; continue
+            common = my.copy()
+            for h in phoneme_grp: common &= all_map.get(h, set())
+            disc = my - common
+            bfs = _bfs_leaves(c)
+            phonetic_scope[c] = [x for x in bfs if x in disc] + sorted(disc - set(bfs))
+        files += [('data_components_phonetic_scope.json', phonetic_scope)]
+
+        # sem_absent: components in the 8 closest radical siblings that this char lacks
+        # uses same sibling selection as sem_sibling; complement: sem_sibling=what C has siblings lack,
+        # sem_absent=what closest siblings have that C lacks
+        sem_absent = {}
+        for c in characters:
+            r = mma_dict.get(c, {}).get('radical', '')
+            r = _RADICAL_NORM.get(r, r)
+            if not r: sem_absent[c] = []; continue
+            siblings = [m for m in _rad_to_chars.get(r, []) if m != c and all_map.get(m)]
+            my = all_map.get(c, set())
+            if not siblings: sem_absent[c] = []; continue
+            closest = sorted(siblings, key=lambda m: -(len(my & all_map[m]) / len(my | all_map[m]) if my | all_map[m] else 0))[:8]
+            counts = defaultdict(int)
+            for s in closest:
+                for comp in all_map.get(s, set()):
+                    if comp not in my and _ok(comp): counts[comp] += 1
+            sem_absent[c] = sorted(counts.keys(), key=lambda x: -counts[x])
+        files += [('data_components_sem_absent.json', sem_absent)]
 
     # ── memodevice typed components (memo_dict) ───────────────────────────────
 

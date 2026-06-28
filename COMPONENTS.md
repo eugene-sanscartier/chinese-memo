@@ -48,7 +48,7 @@ One file per decomposition approach. Each maps every character to a list of bare
 }
 ```
 
-Active files: `direct`, `all`, `hanzi`, `rare`, `contrastive`, `family`, `radical`, `memodevice`, `meaning`, `consensus`, `hint`, `pinyin`, `pos_inv`, `mma_semantic`, `memo_diff`, `absent`, `sem_sibling`, `homophone`, `merged`.
+Active files: `direct`, `all`, `hanzi`, `rare`, `contrastive`, `family`, `radical`, `memodevice`, `meaning`, `consensus`, `hint`, `pinyin`, `pos_inv`, `mma_semantic`, `memo_diff`, `absent`, `hsk_anchor`, `sem_sibling`, `sem_absent`, `homophone`, `phonetic_scope`, `merged`.
 
 ## Implemented decomposition approaches
 
@@ -67,6 +67,9 @@ Active files: `direct`, `all`, `hanzi`, `rare`, `contrastive`, `family`, `radica
 - **Pinyin** — components from `all_map` that share the character's pinyin syllable (tone-stripped), BFS order. NOT filtered by `_discriminating` — the phonetic carrier is intentionally group-binding. Detects phonetic components for 形声字 from acoustic signal alone: no etymology annotations required. Coverage is intentionally low (876/29%) because only 43% of 形声字 in the dataset still have phonetic components whose pronunciation matches exactly (the rest diverged over time). When it fires, it is highly reliable: pinyin=`['各']` for 阁(gé) → MMA confirms phonetic=各; pinyin=`['良']` for 粮(liáng) → MMA confirms phonetic=良.
 - **Pos_inv** — position-invariant confusable detection: computes Jaccard over bare `all_map` component sets (no slot labels) using an inverted index; finds a new confusable group at Jaccard ≥ 0.25; then applies `_discriminating` against that group. The current `build_char_index` uses positional features (L=肖 ≠ R=肖), so 削=⿰肖刂 and 梢=⿰木肖 have positional Jaccard=0 — they are not confusables positionally. Pos_inv sets their Jaccard to 1/3 and detects the full 肖-family (梢/峭/悄/销/消/哨/俏/屑/稍/削). Within that family, 削 is the only one with 刂 → pos_inv=`['肖','刂']` vs direct=`['肖']`. Gives MORE components than `direct` in 1575 chars (cross-slot families surface new discriminating requirements). J=0.703 with `all` (closest existing approach: both use full recursive components, different similarity metric).
 - **Mma_semantic** — extracts the `semantic` field from MMA etymology for pictophonetic chars only (coverage 56%). Applies `_discriminating` with standard confusable set. Different from `meaning` (memodevice source, 113 chars disagree) and `family` (structural confusable grouping, J=0.512). J=0.003 with `pinyin` — essentially orthogonal. **Together, `mma_semantic` + `pinyin` give the complete 形声字 structure from two independent sources: `mma_semantic` gives the meaning-carrying component, `pinyin` gives the sound-carrying component.** 678/685 jointly-firing chars decode completely (only 7 agree on the same element). Example: 清 → semantic=`['氵']` (water meaning) + phonetic=`['青']` (qīng sound).
+- **Hsk_anchor** — from the discriminating components in `all_map`, keeps only those that are themselves HSK vocabulary (have `hsk_level` in `similar_idx` — i.e., they're standalone study characters, not radical forms). Ordered by HSK level ascending. Coverage 76% (2266 chars). Avg 1.7 components — the most compact approach. The filter is pedagogically meaningful: 氵 (water radical) has no HSK level and is excluded; 青 (qīng, blue-green, HSK 3) is included. For 清: `hsk_anchor=[]` because 清's only discriminating component (氵) is a radical form without vocabulary status. For 情: `hsk_anchor=['青']` — among its discriminating components {忄, 青}, only 青 is vocabulary. For 骑: `hsk_anchor=['口','大','奇','可']` — the HSK vocabulary sub-components of 奇 (口 HSK1, 大 HSK1, 可 HSK2, 奇 HSK5) all show up as vocabulary anchors. J=0.597 with `all` (filtered subset); J=0.553 with `sem_sibling` (both tend to surface "named" non-radical characters as the discriminating element). Answers: "which discriminating component does the learner already know as a standalone vocabulary word?"
+- **Sem_absent** — components present in the 8 closest radical siblings (by `all_map` Jaccard) that this character lacks. Uses the same sibling selection as `sem_sibling`. Coverage 97% (highest of all approaches). Avg 8.4 components. J=0.000 with `sem_sibling` (perfect complement by construction: sem_sibling = what C has that siblings lack; sem_absent = what siblings have that C lacks). J=0.000 with `direct`/`all`/`family` — completely orthogonal to all presence-based approaches. J=0.202 with `absent` (similar absent signal, different confusable grouping — radical family vs visual). Together `sem_sibling` + `sem_absent` give the complete **phonetic contrast map** within the radical family: "C uses X as its phonetic; its closest structural siblings use Y, Z, W instead." For 清: sem_sibling=`['青']`, sem_absent=`['舌','齐','㐬','肖','工']` → "청 uses 青 as phonetic; closest 氵-siblings use 舌(活/话)/齐/肖(消/潇)/工(江) instead." For 桥: sem_sibling=`['乔','大','夭']`, sem_absent=`['口','可','奇']` → "桥 uses 乔; closest 木-siblings use 口(杲?)/可(椁?)/奇(椅) instead."
+- **Phonetic_scope** — confusable group = all chars sharing the same tone-stripped syllable (initial+final, any tone). Broader than `homophone` (exact tone): for 情(qíng2), phonetic_scope includes qīng1(清/靖/蜻)/qíng2(情/晴)/qǐng3(请)/qìng4(庆/磬...) while homophone includes only qíng2 chars. Coverage 90% (2708 chars). Avg 3.0 components. J=0.827 with `homophone` (high overlap — same logic, broader group). J=0.106 with `pinyin` (different operation: pinyin finds the phonetic CARRIER; phonetic_scope finds structural DISCRIMINATORS). Key divergences: for 情(qíng2), homophone=`['忄']` (all qíng2 homophones share 青 → removed) but phonetic_scope=`['忄','青']` (qīng1 chars like 靖 and qìng4 chars like 庆 don't have 青 → 青 survives). For 命(mìng4), homophone=`[]` (no same-tone homophones in dataset) but phonetic_scope=`['令','口','亽','龴','𠆢']` (cross-tone míng/mǐng/mìng chars exist). **374 chars fire in phonetic_scope but not homophone** — chars with cross-tone phonetic siblings but no exact-tone homophones.
 - **Memo_diff** — components present in `memo_map` but ABSENT from `all_map` (IDS recursive ancestry). J=0.000 with `all` by construction (it's the set-difference). J=0.189 with `memodevice` (memo_diff ⊆ memodevice). 726 chars (24%) have non-empty memo_diff. Two categories: (1) **normalization variants**: memodevice uses 尚 while IDS uses its Unicode variant 𫩠 — affects 9 chars (常/党/掌/堂/赏 family); (2) **genuine structural reanalyses** (717 chars): memodevice decomposes at a named level that IDS doesn't — e.g. 当: memo_diff=`['田','尚']` while IDS gives only primitives `['彐','⺌']`; 光: memo_diff=`['火','卩']` while IDS gives `['一','儿','⺌']`; 肖: memo_diff=`['小','月']` while IDS gives only `['⺌']`. These are the characters where the memodevice structural tradition makes a meaningfully DIFFERENT choice from IDS — not just finer or coarser, but a different structural analysis entirely.
 - **Absent** — components present in ≥1 visual confusable (from `similar_idx`) but absent from this character, ordered by count descending (how many confusables carry this component). J≈0.000 with ALL other approaches by construction: every other approach returns components IN the character; `absent` returns components NOT in it. Avg 11.8 components per non-empty char (large because it aggregates across all confusables). Covers 84 chars where `direct` is empty — even when there's nothing structurally discriminating IN this char, `absent` shows what the confusables have that this char lacks. Answers: "this character is NOT 间 (no 耳), NOT 问 (no 口), NOT 闯 (no 马)" — the learner can rule out confusables by what's missing.
 - **Sem_sibling** — discrimination within KangXi radical family: confusable set = the 8 closest chars (by `all_map` Jaccard) that share the same MMA radical. Applies `_discriminating` against this semantic sibling group. J=0.025 with `mma_semantic` (nearly orthogonal — see below). Coverage: 2663 chars (89%). Avg 2.2 components per char. Key insight: within the radical family, the radical component is shared by all siblings → it falls out of `_discriminating` → what remains is the NON-RADICAL structural part, which for pictophonetic chars IS the phonetic component. For 清(氵+青): 氵-radical family → 青 is the discriminating phonetic. **`sem_sibling` fires for 1790 chars where `pinyin` is silent** — it recovers the phonetic component structurally even when modern pronunciation has diverged (e.g. 树: sem_sibling=`['对','又','寸']`, the phonetic 对(duì) has diverged from 树(shù) — but structurally it's still there). Unlike `pinyin` (acoustic signal, exact syllable match), `sem_sibling` uses structural grouping and is pronunciation-agnostic.
@@ -78,8 +81,10 @@ Coverage (non-empty / 2998 characters):
 
 | approach | non-empty | uniquely covers |
 |---|---|---|
+| sem_absent | 2912 (97%) | 0 |
 | memodevice | 2830 (94%) | 1 |
 | merged | 2758 (92%) | 0 |
+| phonetic_scope | 2708 (90%) | 0 |
 | hanzi | 2732 (91%) | 0 |
 | rare | 2681 (89%) | **76** |
 | absent | 2678 (89%) | 0 |
@@ -88,10 +93,11 @@ Coverage (non-empty / 2998 characters):
 | sem_sibling | 2663 (89%) | 0 |
 | all | 2646 (88%) | 1 |
 | hint | 2639 (88%) | **38** |
-| pos_inv | 2610 (87%) | 0 |
+| pos_inv | 2608 (87%) | 0 |
 | contrastive | 2576 (85%) | 0 |
 | consensus | 2438 (81%) | 0 |
 | homophone | 2334 (78%) | 0 |
+| hsk_anchor | 2266 (76%) | 0 |
 | meaning | 1881 (63%) | 0 |
 | radical | 1813 (60%) | 3 |
 | mma_semantic | 1685 (56%) | 0 |
@@ -122,6 +128,14 @@ Pairwise Jaccard (average over chars where at least one approach is non-empty):
 | homophone vs all | 0.627 | | homophone vs mma_semantic | 0.196 |
 | homophone vs direct | 0.412 | | homophone vs family | 0.335 |
 | homophone vs pinyin | 0.106 | | absent vs (all others) | **≈0.000** |
+| hsk_anchor vs all | 0.597 | | hsk_anchor vs sem_sibling | 0.553 |
+| hsk_anchor vs direct | 0.482 | | hsk_anchor vs mma_semantic | 0.085 |
+| hsk_anchor vs family | 0.114 | | hsk_anchor vs pinyin | 0.187 |
+| phonetic_scope vs homophone | **0.827** | | phonetic_scope vs all | 0.752 |
+| phonetic_scope vs direct | 0.483 | | phonetic_scope vs pinyin | 0.106 |
+| sem_absent vs sem_sibling | **0.000** | | sem_absent vs absent | 0.202 |
+| sem_absent vs direct | **0.000** | | sem_absent vs all | **0.000** |
+| sem_absent vs family | **0.000** | | sem_absent vs radical | 0.006 |
 
 **Five structural dimensions** — approaches cluster into five distinct signals:
 
@@ -129,7 +143,7 @@ Pairwise Jaccard (average over chars where at least one approach is non-empty):
 2. *Primitive level* (`hanzi`, `all`, `rare`): near-stroke or globally rare elements (丬, 亠, 冖, 彐). Low Jaccard with named-level sources. `rare` (J=0.654 with all) filters `all_map` by global rarity.
 3. *Relational level* (`family`, `radical`, `meaning`, `mma_semantic`): a character's ROLE in its confusion group or semantic class. `family` = structural group-binding; `mma_semantic` (J=0.512 with family, J=0.162 with direct) = MMA linguistic annotation of the semantic carrier.
 4. *Acoustic/etymological level* (`pinyin`, `hint`, `memo_diff`): non-structural. `pinyin` detects phonetic carriers acoustically (J=0.003 with mma_semantic — nearly orthogonal); `hint` = etymological prose; `memo_diff` (J=0.000 with all!) = memodevice structural reanalyses absent from IDS.
-5. *Alternative confusable groupings* (`sem_sibling`, `homophone`, `absent`): redefine either the confusable set or the signal direction. `sem_sibling` uses semantic/radical grouping instead of visual similarity; `homophone` uses phonetic grouping; `absent` inverts the signal entirely (components NOT in the character). `absent` has J≈0.000 with all other approaches — the most orthogonal approach in the set.
+5. *Alternative confusable groupings* (`sem_sibling`, `homophone`, `absent`, `hsk_anchor`, `sem_absent`, `phonetic_scope`): redefine the confusable set, the signal direction, or the component filter. `sem_sibling` uses semantic/radical grouping; `homophone` uses exact-tone phonetic grouping; `phonetic_scope` uses tone-agnostic syllable grouping (J=0.827 with homophone, broader); `absent` inverts the signal (components NOT in the character — J≈0.000 with all presence-based approaches); `sem_absent` inverts absent over the semantic family (J=0.000 with sem_sibling — perfect complement); `hsk_anchor` filters by learner knowledge state (vocabulary-word components only, avg 1.7 components).
 
 **Complementary pair: `family` + `direct`**
 
@@ -284,6 +298,51 @@ They're exact complements. Together they give the complete structural decomposit
 
 Pattern: when a component is shared by all homophones, homophone drops it (even if direct keeps it because visual lookalikes don't have it). When a component is absent from some homophones but present here, homophone adds it (even if visual lookalikes all share it). Homophone and direct together reveal which components are "phonetically salient" vs "visually salient."
 
+**`sem_sibling` + `sem_absent` = complete phonetic contrast map within radical family**
+
+J(sem_sibling, sem_absent) = 0.000 — perfect complements:
+- `sem_sibling`: what C has that its closest radical siblings lack (= C's phonetic component)
+- `sem_absent`: what C's closest radical siblings have that C lacks (= sibling phonetic components)
+
+Together they give the full phonetic landscape of the radical family:
+
+| char | sem_sibling | sem_absent (top 5) | reading |
+|---|---|---|---|
+| 清 | 青 | 舌 齐 肖 工 | 清 uses 青; closest 氵-siblings use 舌(活?)/肖(消/潇)/工(江) |
+| 江 | 工 | 舌 青 齐 肖 | 江 uses 工; closest 氵-siblings use 青(清/情)/舌/肖 |
+| 桥 | 乔 大 夭 | 口 可 奇 甘 | 桥 uses 乔; closest 木-siblings use 可(椁)/奇(椅)/口(杲) |
+| 树 | 对 又 寸 | 叒 双 反 | 树 uses 对; closest 木-siblings use 叒/双/反 |
+| 松 | 公 八 厶 | 勹 勾 儿 夋 | 松 uses 公; closest 木-siblings use 勹/勾/夋 |
+
+sem_absent J=0.000 with ALL structural presence approaches — it lives entirely in a different set space (absent components). J=0.202 with `absent` (same signal type — absence — but semantic family vs visual confusable group).
+
+**`hsk_anchor` — the vocabulary lens**
+
+`hsk_anchor` filters discriminating components to those the learner already knows as standalone vocabulary. With avg 1.7 components, it's the most compact approach. Key behavior:
+
+| char | hsk_anchor | direct | note |
+|---|---|---|---|
+| 情 | 青 | 忄 青 | 忄 dropped (radical form, no HSK level); 青 kept (HSK 3) |
+| 清 | *(empty)* | 氵 | 氵 is radical form only — no vocabulary anchor available |
+| 骑 | 口 大 奇 可 | 奇 | sub-components of 奇 that ARE vocabulary (口HSK1/大HSK1/可HSK2/奇HSK5) all surface |
+| 树 | 对 又 寸 | 对 | 又(HSK5)/寸 appear in all_map as discriminating AND are vocabulary |
+| 晴 | 日 青 | 日 青 | both are vocabulary; full agreement |
+| 粮 | 良 | 良 | 良 is vocabulary (fine, good); clean single anchor |
+
+Useful for card generation: "what word the learner already knows can anchor this character's form?" When empty (清, most radical-only chars), the learner has no vocabulary-level anchor and must learn the radical form as a new element.
+
+**`phonetic_scope` vs `homophone` — tight vs broad phonetic confusables**
+
+J=0.827: mostly agree. The 17% that differ are the most analytically interesting cases. phonetic_scope adds 374 chars where homophone fires but cross-tone groups provide additional discrimination:
+
+| char | homophone | phonetic_scope | divergence |
+|---|---|---|---|
+| 情 | 忄 | 忄 青 | homophone drops 青 (all qíng2 homophones share 青); scope keeps 青 (qīng1/qìng4 chars don't all have 青) |
+| 晴 | 日 | 日 青 | same pattern — cross-tone chars break the 青-sharing |
+| 命 | *(empty)* | 令 口 亽 | no same-tone homophones; cross-tone míng chars exist in dataset |
+
+phonetic_scope fires for 374 chars where homophone gives nothing — these are chars with cross-tone phonetic siblings but no exact-tone homophones in the 2998-char dataset. `phonetic_scope` is a strict superset in coverage; it's the better default for phonetic confusable detection when the dataset is small relative to the full vocabulary.
+
 **`hint` as etymology, not structure**
 
 `hint` is the only approach that captures **historical origin**: it systematically extracts traditional forms and historical components from the hint text.
@@ -326,6 +385,10 @@ Each idea is a distinct angle; implement only after running the comparison analy
 - **Positional stability** — a component that always appears in the same structural slot across all characters that contain it (木 is always left in ⿰木X) is more reliably memorable than one that drifts. Ordering by stability — most stable first — gives the learner the most consistent visual anchor first.
 
 - **HSK anchor** — among a character's components, which are themselves HSK vocabulary? An HSK component is a "free" mnemonic anchor — the learner already has a word-level memory to attach it to. Filtering to HSK-level components (not just reordering) produces a different SET: only components the learner already knows as vocabulary. Coverage is intentionally lower — covers only chars whose discriminating component happens to be common vocabulary.
+
+- **Semantic family absent** (`sem_absent`) — complement to `sem_sibling`: what components do radical siblings HAVE that this character LACKS? While `sem_sibling` gives what makes C unique within the radical family, `sem_absent` gives the phonetic diversity of the family that C doesn't participate in. For a 氵-family char like 清, `sem_absent` gives the phonetic components of 海, 河, 江, 涌... — the whole landscape of what other 氵-chars use instead of 青. Together `sem_sibling` + `sem_absent` give the complete structural picture within a radical family.
+
+- **Phonetic scope** (`phonetic_scope`) — confusable set = all chars sharing the same tone-stripped syllable (initial+final, ignoring tone). Broader than `homophone` (exact tone) and different from `pinyin` (which finds the phonetic carrier component). For 清(qīng): scope group = all qing-syllable chars regardless of tone — 清1, 请3, 情2, 晴2, 庆4, 穷2... Within this group, what structural component distinguishes 清? Expected: between `homophone` (exact tone, tighter group) and something more general. Bridges between the phonetic confusable groupings.
 
 - **Depth-2 ancestry components** — include components reachable at depth-2 through different intermediaries: 骑(马+奇) and 荷(艹+何) both reach 可 via different depth-1 children. Surfaces hidden structural kinship invisible to direct decomposition.
 
