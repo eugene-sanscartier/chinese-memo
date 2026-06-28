@@ -1,6 +1,7 @@
 import pandas
 import numpy
 import json
+from pathlib import Path
 
 import matplotlib
 import matplotlib.pyplot
@@ -31,6 +32,12 @@ _re_number = re.compile(r'\d')
 
 gloss_list = {}
 def_list = {}
+ROOT_DIR = Path(__file__).resolve().parent
+DATA_DIR = ROOT_DIR / "data"
+AUTHORED_DIR = DATA_DIR / "source" / "authored"
+REFERENCE_DIR = DATA_DIR / "source" / "reference"
+CACHE_DIR = DATA_DIR / "cache"
+MEMODEVICE_DIR = DATA_DIR / "derived" / "memodevice"
 
 # lst_percent = []
 # for i in range(1, 3000):
@@ -45,14 +52,14 @@ def_list = {}
 # matplotlib.pyplot.show()
 
 entries = []
-with open("dictionary_char.jsonl", "r", encoding="utf-8") as file_obj:
+with open(REFERENCE_DIR / "dictionary_char.jsonl", "r", encoding="utf-8") as file_obj:
     for json_line in file_obj:
         entry = json.loads(json_line)
         entries += [entry]
 entries = entries[:]  # For testing
 entries_dict = {entry["char"]: entry for entry in entries if "char" in entry}
 
-with open("ids_dictionary.json", "r", encoding="utf-8") as file_obj:
+with open(REFERENCE_DIR / "ids_dictionary.json", "r", encoding="utf-8") as file_obj:
     ids_dict = json.load(file_obj)
 
 
@@ -106,12 +113,12 @@ def process_hint(hint: str) -> str:
     return result.strip()
 
 
-with open("memo.json", "r", encoding="utf-8") as file_obj:
+with open(AUTHORED_DIR / "memo.json", "r", encoding="utf-8") as file_obj:
     memo_data = json.load(file_obj)
 
-with open("gloss_translated.json", "r", encoding="utf-8") as file_obj:
+with open(AUTHORED_DIR / "gloss_translated.json", "r", encoding="utf-8") as file_obj:
     gloss_list = json.load(file_obj)
-with open("translation/definitions/norare-llm_defselection-qwen-max.json", "r", encoding="utf-8") as file_obj:
+with open(AUTHORED_DIR / "definitions_selected.json", "r", encoding="utf-8") as file_obj:
     def_list = json.load(file_obj)
 
 if __name__ == "__main__":
@@ -204,10 +211,7 @@ if __name__ == "__main__":
         except:
             pass
 
-    # with open("translation/gloss_translation-qwen-max.json", "r", encoding="utf-8") as file_obj:
-    #     gloss_list = json.load(file_obj)
-    #     # json.dump(gloss_list, file_obj, ensure_ascii=False, indent=4)
-    # with open("translation/norare-llm_defselection-qwen-max.json", "r", encoding="utf-8") as file_obj:
+    # with open(AUTHORED_DIR / "definitions_selected.json", "r", encoding="utf-8") as file_obj:
     #     def_list = json.load(file_obj)
     #     # json.dump(def_list, file_obj, ensure_ascii=False, indent=4)
 
@@ -313,7 +317,7 @@ if __name__ == "__main__":
         for ii, char in enumerate(by_radical[radical]):
             char["position"] = ii + 1
 
-    with pandas.ExcelWriter(f"memo_excel.xlsx") as writer:
+    with pandas.ExcelWriter(MEMODEVICE_DIR / "memo_excel.xlsx") as writer:
         # Radicals sheet by frequency
         by_radical111 = dict(sorted(by_radical.items(), key=lambda item: len(item[1]), reverse=True))
         freq_sheet = {
@@ -376,7 +380,7 @@ if __name__ == "__main__":
         by_radical_before_sort = by_radical.copy()
         # sort by number of entries per radical
         by_radical = dict(sorted(by_radical.items(), key=lambda item: len(item[1]), reverse=False))
-        with open("data_memodevice.json", "w", encoding="utf-8") as file_obj:
+        with open(MEMODEVICE_DIR / "data_memodevice.json", "w", encoding="utf-8") as file_obj:
             json.dump(by_radical, file_obj, ensure_ascii=False, indent=4)
 
         print("Number of radical entry:", len(by_radical))

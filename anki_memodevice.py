@@ -3,6 +3,7 @@ import json
 import os
 import re
 import unicodedata
+from pathlib import Path
 from urllib.parse import unquote
 import numpy.random
 import hashlib
@@ -20,22 +21,30 @@ _re_number = re.compile(r'\d')
 
 import genanki
 
-AUDIO_DIR = "../pinyin-audio/allsetlearning"
+ROOT_DIR = Path(__file__).resolve().parent
+DATA_DIR = ROOT_DIR / "data"
+AUTHORED_DIR = DATA_DIR / "source" / "authored"
+REFERENCE_DIR = DATA_DIR / "source" / "reference"
+MEMODEVICE_DIR = DATA_DIR / "derived" / "memodevice"
+ANKI_ASSETS_DIR = ROOT_DIR / "assets" / "anki"
+LOCI_ASSETS_DIR = ROOT_DIR / "assets" / "loci"
+BUILD_DIR = ROOT_DIR / "build"
+AUDIO_DIR = ANKI_ASSETS_DIR / "audio"
 
 def pinyin_audio_filename(pinyin_data):
     final = pinyin_data["final"].replace("u", "ü") if pinyin_data["u_is_v"] else pinyin_data["final"]
     return unicodedata.normalize("NFD", f'{pinyin_data["initial"]}{final}{pinyin_data["tone"]}.mp3')
 
-with open("css.css", "r", encoding="utf-8") as file_obj:
+with open(ANKI_ASSETS_DIR / "css.css", "r", encoding="utf-8") as file_obj:
     CSS = file_obj.read()
 
-with open("frontcloze_template.html", "r", encoding="utf-8") as file_obj:
+with open(ANKI_ASSETS_DIR / "frontcloze_template.html", "r", encoding="utf-8") as file_obj:
     FRONT_TEMPLATE = file_obj.read()
 
-with open("backcloze_template.html", "r") as file_obj:
+with open(ANKI_ASSETS_DIR / "backcloze_template.html", "r") as file_obj:
     BACK_TEMPLATE = file_obj.read()
 
-with open("memo.json", "r", encoding="utf-8") as file_obj:
+with open(AUTHORED_DIR / "memo.json", "r", encoding="utf-8") as file_obj:
     memo_data = json.load(file_obj)
 
 
@@ -258,7 +267,7 @@ def get_image_file(key: str, loci_data: dict, k: int, char: str, full_img=False)
     if key in special:
         radical = decomposer.decompose(char, 2)["components"][0]
 
-        img_file = f"loci/{radical}.png"
+        img_file = str(LOCI_ASSETS_DIR / f"{radical}.png")
         loci_name = loci_data.get(radical, {}).get("name", "")
         return img_file, loci_name
 
@@ -268,7 +277,7 @@ def get_image_file(key: str, loci_data: dict, k: int, char: str, full_img=False)
             if full_img:
                 if key[0] == "㇇": key = "㇇"
 
-                img_file = f"loci/{key}.png"
+                img_file = str(LOCI_ASSETS_DIR / f"{key}.png")
                 loci_name = loci_data.get(loci, {}).get("name", "")
                 break
 
@@ -277,7 +286,7 @@ def get_image_file(key: str, loci_data: dict, k: int, char: str, full_img=False)
 
                 if loci[0] == "㇇":
                     loci = "㇇" + loci[-1]
-                img_file = f"loci/{loci}.png"
+                img_file = str(LOCI_ASSETS_DIR / f"{loci}.png")
                 break
 
     return img_file, loci_name
@@ -285,16 +294,16 @@ def get_image_file(key: str, loci_data: dict, k: int, char: str, full_img=False)
 
 def excelmemo_sets():
     dictionary_char = []
-    with open("dictionary_char.jsonl", "r", encoding="utf-8") as file_obj:
+    with open(REFERENCE_DIR / "dictionary_char.jsonl", "r", encoding="utf-8") as file_obj:
         for json_line in file_obj:
             entry = json.loads(json_line)
             dictionary_char += [entry]
     dictionary_char = {entry["char"]: entry for entry in dictionary_char if "char" in entry}
 
-    with open("gloss_translated.json", "r", encoding="utf-8") as file_obj:
+    with open(AUTHORED_DIR / "gloss_translated.json", "r", encoding="utf-8") as file_obj:
         gloss_list = json.load(file_obj)
 
-    with pandas.ExcelWriter(f"memo_sets.xlsx") as writer:
+    with pandas.ExcelWriter(MEMODEVICE_DIR / "memo_sets.xlsx") as writer:
         df = pandas.DataFrame(counter_list)
         df.to_excel(writer, sheet_name="Loci Sets", index=False)
         writer.sheets["Loci Sets"].autofit()
@@ -313,14 +322,14 @@ def excelmemo_sets():
         writer.sheets["Loci Path"].autofit()
 
 
-with open("data_memodevice.json", "r", encoding="utf-8") as file_obj:
+with open(MEMODEVICE_DIR / "data_memodevice.json", "r", encoding="utf-8") as file_obj:
     dict_entries = json.load(file_obj)
 
-with open("loci.json", "r", encoding="utf-8") as file_obj:
+with open(AUTHORED_DIR / "loci.json", "r", encoding="utf-8") as file_obj:
     loci_data = json.load(file_obj)
 
 # open guid txt list
-with open("guids.txt", "r", encoding="utf-8") as file_obj:
+with open(AUTHORED_DIR / "guids.txt", "r", encoding="utf-8") as file_obj:
     guid_list = [line.strip() for line in file_obj.readlines()]
 
 counter_list = []
@@ -404,12 +413,12 @@ if __name__ == "__main__":
         print(f"  ✗ Warning: {duplicates} duplicate GUID(s) found!")
 
     package = genanki.Package(decks)
-    package.media_files = glob.glob("loci/*.png")
-    package.media_files += ["_LXGWWenKaiGBLite-Light.ttf", "_HanaMinA.otf", "_HanaMinB.otf"]
+    package.media_files = [str(path) for path in LOCI_ASSETS_DIR.glob("*.png")]
+    package.media_files += [str(ANKI_ASSETS_DIR / "fonts" / name) for name in ["_LXGWWenKaiGBLite-Light.ttf", "_HanaMinA.otf", "_HanaMinB.otf"]]
     audio_files = {pinyin_audio_filename(e["pinyin"]) for entrys in dict_entries.values() for e in entrys}
-    package.media_files += [f"{AUDIO_DIR}/{f}" for f in audio_files if os.path.exists(f"{AUDIO_DIR}/{f}")]
+    package.media_files += [str(AUDIO_DIR / f) for f in audio_files if (AUDIO_DIR / f).exists()]
 
-    package.write_to_file('memo_anki.apkg')
+    package.write_to_file(BUILD_DIR / "memo_anki.apkg")
 
     # # Generate memo_sets.xlsx
     # excelmemo_sets()

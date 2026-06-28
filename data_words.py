@@ -33,15 +33,20 @@ parser.add_argument("--llm-model", default="qwen-max", help="DashScope model use
 parser.add_argument("--llm-batch-size", type=int, default=75, help="Definitions sent in each Qwen request.")
 args = parser.parse_args()
 COMMONNESS_WEIGHT = args.commonness_weight
+ROOT_DIR = Path(__file__).resolve().parent
+DATA_DIR = ROOT_DIR / "data"
+REFERENCE_DIR = DATA_DIR / "source" / "reference"
+CACHE_DIR = DATA_DIR / "cache" / "llm_definition"
+WORDS_DIR = DATA_DIR / "derived" / "words"
 
 dictionary = HanziDictionary()
 
-with Path(__file__).resolve().parent.parent.joinpath("complete-hsk-vocabulary", "complete.min.json").open(encoding="utf-8") as hsk_file:
+with (REFERENCE_DIR / "hsk_vocabulary.json").open(encoding="utf-8") as hsk_file:
     hsk_data = json.load(hsk_file)
 hsk_levels = {}
 for entry in hsk_data:
-    levels = [int(level[1:]) for level in entry["l"] if level[0] in {"n", "o"}]
-    hsk_levels[entry["s"]] = min(levels)
+    levels = [int(level[4:]) for level in entry["level"] if level[:3] in {"new", "old"}]
+    hsk_levels[entry["simplified"]] = min(levels)
 
 word_ranks = {}
 previous_frequency = None
@@ -116,7 +121,7 @@ while uncovered_characters:
 if args.clean_definitions:
     from qwen_api import OpenAIAPI
 
-    cleanup_dir = Path(__file__).resolve().with_name("llm_definition")
+    cleanup_dir = CACHE_DIR
     cleanup_dir.mkdir(exist_ok=True)
     cache_path = cleanup_dir.joinpath("definitions.json")
     cache = json.loads(cache_path.read_text(encoding="utf-8")) if cache_path.exists() else {}
@@ -179,7 +184,8 @@ Output: {"一石二鸟": "lit. one stone, two birds; fig. kill two birds with on
         if isinstance(cached, dict) and cached.get("source_definition") == candidate["definition"] and cached.get("model") == args.llm_model and isinstance(cached_definition, str) and cached_definition.strip():
             candidate["definition"] = cached_definition.strip()
 
-with Path(__file__).resolve().with_name("data_words.csv").open("w", encoding="utf-8", newline="") as csv_file:
+WORDS_DIR.mkdir(exist_ok=True, parents=True)
+with (WORDS_DIR / "data_words.csv").open("w", encoding="utf-8", newline="") as csv_file:
     writer = csv.writer(csv_file)
     writer.writerow(["word", "rank", "hsk_level", "definition"])
     for candidate in sorted(selected, key=lambda candidate: (-candidate["frequency"], candidate["word"])):

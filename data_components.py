@@ -4,9 +4,14 @@ import re
 import unicodedata
 from collections import defaultdict
 from itertools import combinations
+from pathlib import Path
 from hanzipy.decomposer import HanziDecomposer
 
 decomposer = HanziDecomposer()
+ROOT_DIR = Path(__file__).resolve().parent
+DATA_DIR = ROOT_DIR / "data"
+REFERENCE_DIR = DATA_DIR / "source" / "reference"
+MEMODEVICE_DIR = DATA_DIR / "derived" / "memodevice"
 
 NOISE = set('一丨丶丿乙亅㇆㇉㇠㇇㇒㇗㇈㇏㇖㇗𠂇𠂉⺁⺙⺮⺈⺌⻊⺊⺹⻎') | {'No glyph available'}
 _CJK_RE = re.compile(r'[⺀-鿿豈-﫿]')
@@ -368,7 +373,7 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
                      (more visually prominent) components come first
       hanzi        — HanziDecomposer level-2; independent source, often finer-grained than IDS
       radical      — single KangXi radical from MMA; culturally grounded, always one entry
-      memodevice   — typed decomposition from data_memodevice.json; meaning→sound→iconic
+      memodevice   — typed decomposition from data/derived/memodevice/data_memodevice.json; meaning→sound→iconic
       meaning      — meaning-type components only from memodevice; semantic core
       family       — components shared by ≥50% of confusables; inverse of discriminating: shows
                      what binds the confusion group rather than what differs. NOT filtered by
@@ -793,22 +798,22 @@ def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None,
 # ── main ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    with open("data_memodevice.json", "r", encoding="utf-8") as f:
+    with open(MEMODEVICE_DIR / "data_memodevice.json", "r", encoding="utf-8") as f:
         data = json.load(f)
-    with open("ids_dictionary.json", "r", encoding="utf-8") as f:
+    with open(REFERENCE_DIR / "ids_dictionary.json", "r", encoding="utf-8") as f:
         ids_dict = json.load(f)
 
     characters = [e['character'] for g in data.values() for e in g]
     print(f"Processing {len(characters)} characters...")
 
-    OUT = 'data_components'
+    OUT = DATA_DIR / "derived" / "components"
     os.makedirs(OUT, exist_ok=True)
 
     print("\nLoading MMA and char dictionaries...")
-    mma_lines = open('dictionary_makemeahanzi.txt', encoding='utf-8').readlines()
+    mma_lines = open(REFERENCE_DIR / "dictionary_makemeahanzi.txt", encoding="utf-8").readlines()
     mma_dict = {d['character']: d for d in (json.loads(l) for l in mma_lines) if d.get('character')}
     char_dict = {}
-    for line in open('dictionary_char.jsonl', encoding='utf-8'):
+    for line in open(REFERENCE_DIR / "dictionary_char.jsonl", encoding="utf-8"):
         d = json.loads(line)
         if d.get('char'): char_dict[d['char']] = d
     print(f"  MMA: {len(mma_dict)} entries, char_dict: {len(char_dict)} entries")
