@@ -5,9 +5,6 @@ __pycache__/
 *.pyc
 .DS_Store
 
-translation/llm_io
-translation/old
-tmp/
-old/
-loci_name/
-definition_selection/llm_io
+build/
+data/cache/
+data/derived/
