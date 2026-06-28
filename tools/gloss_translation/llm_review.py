@@ -1,8 +1,12 @@
 import json
 import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT_DIR = Path(__file__).resolve().parents[2]
+CACHE_DIR = ROOT_DIR / "data" / "cache" / "gloss_translation"
+WORKDIR = CACHE_DIR / "final-gloss-workdir"
+sys.path.insert(0, str(ROOT_DIR))
 from qwen_api import OpenAIAPI
 
 
@@ -59,19 +63,19 @@ Review and evaluate the following character glosses:
 
 """
 
-    with open("translation_review/bad_translations.json", "r", encoding="utf-8") as file_obj:
+    with open(CACHE_DIR / "translation_review" / "bad_translations.json", "r", encoding="utf-8") as file_obj:
         gloss_list: dict = json.load(file_obj)
     for gloss in gloss_list.values():
         gloss["gloss_review"] = ""
 
-    client = OpenAIAPI(model="qwen-max", api_key=DASHSCOPE_API_KEY)
+    client = OpenAIAPI(model="qwen-max", api_key=DASHSCOPE_API_KEY, logs_dir=CACHE_DIR / "llm_io")
 
-    out_dir = "googletranslation_review"
+    out_dir = CACHE_DIR / "googletranslation_review"
     os.makedirs(out_dir, exist_ok=True)
 
     records_keys = list(gloss_list)[:]
 
-    merged_path = os.path.join(out_dir, "gloss_translation.json")
+    merged_path = out_dir / "gloss_translation.json"
     if os.path.exists(merged_path):
         try:
             with open(merged_path, "r", encoding="utf-8") as f_in:
@@ -106,16 +110,16 @@ Review and evaluate the following character glosses:
 
 
 def split_bad3good():
-    with open("gloss_translation-thinking.json", "r", encoding="utf-8") as f_in:
+    with open(WORKDIR / "gloss_translation-thinking.json", "r", encoding="utf-8") as f_in:
         merged = json.load(f_in)
 
     good = {k: v for k, v in merged.items() if v.get("gloss_review") == "G"}
     bad = {k: v for k, v in merged.items() if v.get("gloss_review") == "B"}
 
-    with open("gloss_translation-thinking-G.json", "w", encoding="utf-8") as f_good:
+    with open(WORKDIR / "gloss_translation-thinking-G.json", "w", encoding="utf-8") as f_good:
         json.dump(good, f_good, ensure_ascii=False, indent=4)
 
-    with open("gloss_translation-thinking-B.json", "w", encoding="utf-8") as f_bad:
+    with open(WORKDIR / "gloss_translation-thinking-B.json", "w", encoding="utf-8") as f_bad:
         json.dump(bad, f_bad, ensure_ascii=False, indent=4)
 
 

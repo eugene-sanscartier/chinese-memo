@@ -1,10 +1,13 @@
 import os
 import json
+from pathlib import Path
 
 # Import the Google Cloud Translation library.
 from google.cloud import translate_v3
 
 PROJECT_ID = "project-d82fc73e-ca8a-41d1-b54"
+ROOT_DIR = Path(__file__).resolve().parents[2]
+CACHE_DIR = ROOT_DIR / "data" / "cache" / "gloss_translation"
 
 
 def translate_texts(texts: list[str] = "", source_language_code: str = "en", target_language_code: str = "fr", batch_size: int = 1024) -> list[str]:
@@ -26,7 +29,7 @@ def translate_texts(texts: list[str] = "", source_language_code: str = "en", tar
 
 
 if __name__ == "__main__":
-    with open("../gloss.json", "r", encoding="utf-8") as file_obj:
+    with open(ROOT_DIR / "data" / "source" / "authored" / "gloss.json", "r", encoding="utf-8") as file_obj:
         gloss_list: dict = json.load(file_obj)
 
     en_glosses = [gloss["gloss_en"] for char, gloss in gloss_list.items()][:]
@@ -36,9 +39,9 @@ if __name__ == "__main__":
     for (char, gloss), fr_gloss in zip(gloss_list.items(), fr_glosses):
         merged[char] = {"gloss_en": gloss["gloss_en"], "gloss_fr": fr_gloss}
 
-    out_dir = "google_translation"
+    out_dir = CACHE_DIR / "google_translation"
     os.makedirs(out_dir, exist_ok=True)
 
-    merged_path = os.path.join(out_dir, "gloss_translation.json")
+    merged_path = out_dir / "gloss_translation.json"
     with open(merged_path, "w", encoding="utf-8") as f_out:
         json.dump(merged, f_out, ensure_ascii=False, indent=4)

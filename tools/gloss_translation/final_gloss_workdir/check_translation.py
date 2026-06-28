@@ -7,7 +7,6 @@ Supports resuming from last session and undo functionality.
 """
 
 import json
-import os
 import sys
 import tty
 import termios
@@ -15,13 +14,15 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 from datetime import datetime
 
+ROOT_DIR = Path(__file__).resolve().parents[3]
+WORKDIR = ROOT_DIR / "data" / "cache" / "gloss_translation" / "final-gloss-workdir"
 
 class TranslationChecker:
 
-    def __init__(self, json_file: str = "gloss_translation-qwen-max.json"):
+    def __init__(self, json_file: str = "gloss_translation.json"):
         """Initialize the translation checker."""
         self.json_file = json_file
-        self.base_dir = Path(__file__).parent
+        self.base_dir = WORKDIR
         self.output_dir = self.base_dir / "translation_review"
         self.state_file = self.output_dir / "state.json"
 
@@ -35,7 +36,8 @@ class TranslationChecker:
 
     def _load_json(self, filepath: str) -> Dict:
         """Load JSON file."""
-        path = self.base_dir / filepath
+        path = Path(filepath)
+        if not path.is_absolute(): path = self.base_dir / path
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 return json.load(f)
@@ -286,7 +288,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="Verify French translations of Chinese character glosses")
-    parser.add_argument("--file", default="gloss_translation-qwen-max.json", help="JSON file to verify (default: gloss_translation-qwen-max.json)")
+    parser.add_argument("--file", default="gloss_translation.json", help="JSON file to verify (default: gloss_translation.json)")
     parser.add_argument("--status", action="store_true", help="Show review status without interactive mode")
 
     args = parser.parse_args()

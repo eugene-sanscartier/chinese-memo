@@ -1,8 +1,12 @@
 import json
 import os
 import sys
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT_DIR = Path(__file__).resolve().parents[2]
+CACHE_DIR = ROOT_DIR / "data" / "cache" / "definition_selection"
+SNAPSHOTS_DIR = CACHE_DIR / "snapshots"
+sys.path.insert(0, str(ROOT_DIR))
 from qwen_api import OpenAIAPI
 
 
@@ -11,7 +15,7 @@ DASHSCOPE_API_KEY = 'sk-2cbe14e057f14615b670eda42a55af9b'
 
 # with open("definitions.json", "r", encoding="utf-8") as file_obj:
 #     definitions_list: dict = json.load(file_obj)
-with open("onev2-llm_defselection.json", "r", encoding="utf-8") as file_obj:
+with open(SNAPSHOTS_DIR / "onev2-llm_defselection.json", "r", encoding="utf-8") as file_obj:
     definitions_list: dict = json.load(file_obj)
 for char, defs in definitions_list.items():
     if "def_fr" in defs: del defs["def_fr"]
@@ -90,14 +94,14 @@ WHAT TO REMOVE:
 
 Process the following:"""
 
-    client = OpenAIAPI(model="qwen-max", api_key=DASHSCOPE_API_KEY)
+    client = OpenAIAPI(model="qwen-max", api_key=DASHSCOPE_API_KEY, logs_dir=CACHE_DIR / "llm_io")
 
-    out_dir = "llm_defselection"
+    out_dir = CACHE_DIR / "llm_defselection"
     os.makedirs(out_dir, exist_ok=True)
 
     records_keys = list(definitions_list)
 
-    merged_path = os.path.join(out_dir, "llm_defselection.json")
+    merged_path = out_dir / "llm_defselection.json"
     if os.path.exists(merged_path):
         try:
             with open(merged_path, "r", encoding="utf-8") as f_in:
