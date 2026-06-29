@@ -13096,7 +13096,7 @@
         "gloss_fr": "escroquer"
     },
     "慧": {
-        "gloss_en": "bright",
+        "gloss_en": "intelligent",
         "gloss_fr": "intelligent, sage"
     },
     "孛": {
@@ -13200,8 +13200,8 @@
         "gloss_fr": "renommée"
     },
     "凌": {
-        "gloss_en": "pure",
-        "gloss_fr": "glace, monter"
+        "gloss_en": "surpass",
+        "gloss_fr": "dépasser"
     },
     "粹": {
         "gloss_en": "pure",
@@ -13232,15 +13232,15 @@
         "gloss_fr": "tailler"
     },
     "宏": {
-        "gloss_en": "wide",
-        "gloss_fr": "grand"
+        "gloss_en": "vast",
+        "gloss_fr": "vaste"
     },
     "拨": {
         "gloss_en": "move",
         "gloss_fr": "déplacer"
     },
     "沃": {
-        "gloss_en": "water",
+        "gloss_en": "fertile",
         "gloss_fr": "fertile"
     },
     "拼": {
@@ -13296,8 +13296,8 @@
         "gloss_fr": "sédiment, pourri, ruiné"
     },
     "葛": {
-        "gloss_en": "edible bean",
-        "gloss_fr": "kudzu, légumineuse"
+        "gloss_en": "kudzu",
+        "gloss_fr": "kudzu"
     },
     "鸿": {
         "gloss_en": "species of wild swan",
@@ -13385,7 +13385,7 @@
     },
     "棋": {
         "gloss_en": "chess",
-        "gloss_fr": "jeu"
+        "gloss_fr": "échecs"
     },
     "唉": {
         "gloss_en": "alas",
@@ -13400,8 +13400,8 @@
         "gloss_fr": "perle imparfaite"
     },
     "夃": {
-        "gloss_en": "thigh",
-        "gloss_fr": "acheter"
+        "gloss_en": "profit in trade",
+        "gloss_fr": "profit dans le commerce"
     },
     "谅": {
         "gloss_en": "excuse, forgive",
@@ -13468,7 +13468,7 @@
         "gloss_fr": "pet"
     },
     "讽": {
-        "gloss_en": "recite",
+        "gloss_en": "satirize",
         "gloss_fr": "satiriser"
     },
     "鼎": {
@@ -13524,7 +13524,7 @@
         "gloss_fr": "puiser"
     },
     "迄": {
-        "gloss_en": "extend",
+        "gloss_en": "until",
         "gloss_fr": "jusqu'à"
     },
     "冀": {
@@ -13600,11 +13600,11 @@
         "gloss_fr": "drainer"
     },
     "诧": {
-        "gloss_en": "to brag",
-        "gloss_fr": "surpris"
+        "gloss_en": "be surprised",
+        "gloss_fr": "être surpris"
     },
     "嚼": {
-        "gloss_en": "prattle",
+        "gloss_en": "chew",
         "gloss_fr": "mâcher"
     },
     "衙": {
@@ -13612,7 +13612,7 @@
         "gloss_fr": "bureau officiel"
     },
     "喧": {
-        "gloss_en": "lively",
+        "gloss_en": "noisy",
         "gloss_fr": "bruyant"
     },
     "阑": {
@@ -13660,7 +13660,7 @@
         "gloss_fr": "nom de famille"
     },
     "俭": {
-        "gloss_en": "temperate",
+        "gloss_en": "frugal",
         "gloss_fr": "économe"
     },
     "窦": {
@@ -13710,13 +13710,13 @@
     },
     "念": {
         "char": "念",
-        "gloss_en": "think of, ready",
-        "gloss_fr": "penser à, lire"
+        "gloss_en": "think of",
+        "gloss_fr": "penser à"
     },
     "医": {
         "char": "医",
-        "gloss_en": "medicine",
-        "gloss_fr": "médecin, soigner"
+        "gloss_en": "medical",
+        "gloss_fr": "médical"
     },
     "亘": {
         "char": "亘",
@@ -13760,8 +13760,8 @@
     },
     "喀": {
         "char": "喀",
-        "gloss_en": "vomit",
-        "gloss_fr": "tousser"
+        "gloss_en": "coughing or vomiting sound",
+        "gloss_fr": "bruit de toux ou de vomissement"
     },
     "贱": {
         "char": "贱",
@@ -13789,8 +13789,8 @@
         "gloss_fr": "tige, racine"
     },
     "礻": {
-        "gloss_en": "show",
-        "gloss_fr": "radical de l'esprit, culte"
+        "gloss_en": "left form of 示",
+        "gloss_fr": "forme gauche de 示"
     },
     "兀": {
         "gloss_en": "stand tall",
@@ -13805,7 +13805,7 @@
         "gloss_fr": "couper"
     },
     "氢": {
-        "gloss_en": "ammonia",
+        "gloss_en": "hydrogen",
         "gloss_fr": "hydrogène"
     },
     "绒": {
