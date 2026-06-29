@@ -1,42 +1,17 @@
 import json
-import os
-import re
-import unicodedata
 from collections import defaultdict
-from itertools import combinations
 from pathlib import Path
-from hanzipy.decomposer import HanziDecomposer
 
-decomposer = HanziDecomposer()
 ROOT_DIR = Path(__file__).resolve().parent
 DATA_DIR = ROOT_DIR / "data"
 REFERENCE_DIR = DATA_DIR / "source" / "reference"
 MEMODEVICE_DIR = DATA_DIR / "derived" / "memodevice"
 
 NOISE = set('一丨丶丿乙亅㇆㇉㇠㇇㇒㇗㇈㇏㇖㇗𠂇𠂉⺁⺙⺮⺈⺌⻊⺊⺹⻎') | {'No glyph available'}
-_CJK_RE = re.compile(r'[⺀-鿿豈-﫿]')
-# Radical variant → canonical form.  Applied before NOISE check in _pos_leaves so that
-# IDS trees using variant radicals (⻖=left-ear, ⻏=right-ear, ⺼=meat, ⻌=walk) produce
-# the same positional features as trees written with the canonical form.
-# Without this, 院(⿰⻖完) → {R=完} only (⻖ filtered), making it a "subset" of any
-# char that also has R=完.  With it: 院 → {L=阝, R=完}, correctly discriminated.
 _RADICAL_NORM = {'⻖': '阝', '⻏': '阝', '⺼': '月', '⻌': '辶'}
-
-# IDS operator arity and positional slot names
-_IDS_OPS = {'⿰':2,'⿱':2,'⿲':3,'⿳':3,'⿴':2,'⿵':2,'⿶':2,'⿷':2,'⿸':2,'⿹':2,'⿺':2,'⿻':2}
-_SLOTS   = {'⿰':['L','R'],'⿱':['T','B'],'⿲':['L','M','R'],'⿳':['T','M','B'],
-            '⿴':['O','I'],'⿵':['T','O'],'⿶':['B','O'],'⿷':['R','O'],
-            '⿸':['TL','O'],'⿹':['TR','O'],'⿺':['BL','O'],'⿻':['A','B']}
-# Approximate visual area fraction each slot occupies within its operator.
-# Used to rank discriminating features by perceptual salience.
-_SLOT_SALIENCE = {
-    '⿰': {'L': 0.40, 'R': 0.60}, '⿱': {'T': 0.45, 'B': 0.55},
-    '⿲': {'L': 0.30, 'M': 0.35, 'R': 0.35}, '⿳': {'T': 0.30, 'M': 0.35, 'B': 0.35},
-    '⿴': {'O': 0.65, 'I': 0.35}, '⿵': {'T': 0.60, 'O': 0.40},
-    '⿶': {'B': 0.60, 'O': 0.40}, '⿷': {'R': 0.60, 'O': 0.40},
-    '⿸': {'TL': 0.55, 'O': 0.45}, '⿹': {'TR': 0.55, 'O': 0.45},
-    '⿺': {'BL': 0.55, 'O': 0.45}, '⿻': {'A': 0.50, 'B': 0.50},
-}
+_FINAL_REMAP = {'⺌': '小', '⺮': '竹', '𧾷': '足', '𤣩': '王', '礻': '示', '𫩠': '尚', '龸': '尚', '&CDP-8958;': '月'}
+_IDS_OPS = {'⿰': 2, '⿱': 2, '⿲': 3, '⿳': 3, '⿴': 2, '⿵': 2, '⿶': 2, '⿷': 2, '⿸': 2, '⿹': 2, '⿺': 2, '⿻': 2}
+_SLOTS = {'⿰': ['L', 'R'], '⿱': ['T', 'B'], '⿲': ['L', 'M', 'R'], '⿳': ['T', 'M', 'B'], '⿴': ['O', 'I'], '⿵': ['T', 'O'], '⿶': ['B', 'O'], '⿷': ['R', 'O'], '⿸': ['TL', 'O'], '⿹': ['TR', 'O'], '⿺': ['BL', 'O'], '⿻': ['A', 'B']}
 
 
 def _parse_ids(s):
@@ -48,10 +23,10 @@ def _parse_ids(s):
             tok = s[pos:end + 1] if end != -1 else ch
             return tok, (end + 1 if end != -1 else pos + 1)
         if ch in _IDS_OPS:
-            n = _IDS_OPS[ch]; children = []; p = pos + 1
-            for _ in range(n):
+            children, p = [], pos + 1
+            for _ in range(_IDS_OPS[ch]):
                 child, p = go(p)
-                children.append(child)
+                children += [child]
             return (ch, children), p
         return ch, pos + 1
     if not s: return None
@@ -60,33 +35,26 @@ def _parse_ids(s):
 
 
 def _valid_comp(c):
-    if len(c) != 1: return True  # entity references like &CDP-8CCE; are valid
+    if len(c) != 1: return True
     o = ord(c)
-    return (o >= 0x2E80 and not (0xE000 <= o <= 0xF8FF or 0xF0000 <= o <= 0x10FFFF))
-
-
-def _strip_tone(p):
-    return ''.join(c for c in unicodedata.normalize('NFD', p) if unicodedata.category(c) != 'Mn')
+    return o >= 0x2E80 and not (0xE000 <= o <= 0xF8FF or 0xF0000 <= o <= 0x10FFFF)
 
 
 def _pos_leaves(tree, path=''):
-    """Recursively extract 'pos=component' strings from IDS tree leaves (no operators)."""
     if tree is None: return set()
     if isinstance(tree, str):
         comp = _RADICAL_NORM.get(tree, tree)
         if comp in NOISE or not _valid_comp(comp): return set()
         return {f'{path}={comp}' if path else comp}
     op, children = tree
-    names = _SLOTS.get(op, [str(i) for i in range(len(children))])
     feats = set()
     for i, child in enumerate(children):
-        slot = names[i] if i < len(names) else str(i)
+        slot = _SLOTS.get(op, [str(j) for j in range(len(children))])[i]
         feats |= _pos_leaves(child, f'{path}.{slot}' if path else slot)
     return feats
 
 
 def get_pos_feats(char, ids_dict):
-    """Return set of positional feature strings like 'L=木', 'R=黄', 'BL=辶'."""
     tree = _parse_ids(ids_dict.get(char, {}).get('ids', ''))
     return _pos_leaves(tree) if tree else set()
 
@@ -96,732 +64,93 @@ def _jaccard(a, b):
     return len(a & b) / len(a | b)
 
 
-# ── global fingerprint & joint identity (char-indexed, group-free) ───────────
-
-def global_fingerprint(char, pos_map, all_chars, threshold=0.25):
-    """Minimum pos-features separating char from every char with Jaccard >= threshold.
-    Uses similarity-weighted greedy: covering a high-Jaccard neighbour is prioritised."""
-    C = pos_map[char]
-    if not C: return [], [], 'empty'
-
-    threats = sorted(
-        [(D, _jaccard(C, pos_map[D])) for D in all_chars
-         if D != char and _jaccard(C, pos_map[D]) >= threshold],
-        key=lambda x: -x[1]
-    )
-    if not threats:
-        return [min(C, key=lambda f: sum(1 for D in all_chars if f in pos_map[D]))], [], 'unique'
-
-    threat_chars = [D for D, _ in threats]
-    jw = {D: j for D, j in threats}
-    seps = [C - pos_map[D] for D in threat_chars]
-    subset_of = [threat_chars[i] for i, s in enumerate(seps) if not s]
-    nonempty = [(threat_chars[i], s) for i, s in enumerate(seps) if s]
-
-    if not nonempty:
-        return [], subset_of, 'subset'
-
-    remaining = list(nonempty)
-    chosen = []
-    while remaining:
-        candidates = set().union(*(s for _, s in remaining))
-        best = max(candidates, key=lambda f: sum(jw[D] for D, s in remaining if f in s))
-        chosen += [best]
-        remaining = [(D, s) for D, s in remaining if best not in s]
-
-    similar_top = [D for D, _ in threats[:8]]
-    return chosen, similar_top, 'discriminating'
-
-
-def joint_identity(char, pos_map, all_chars):
-    """Smallest conjunction of pos-features that no other char in the dataset also has.
-    Returns (features, identity_type) where identity_type is 'singleton', 'pair',
-    'triple', or 'full' (entire pos-feature set needed)."""
-    C = pos_map[char]
-    feat_list = sorted(C)
-
-    def no_other_has_all(feats):
-        return not any(D != char and all(f in pos_map[D] for f in feats) for D in all_chars)
-
-    feat_freq = {f: sum(1 for D in all_chars if f in pos_map[D]) for f in feat_list}
-
-    for f in sorted(feat_list, key=lambda f: feat_freq[f]):
-        if no_other_has_all([f]):
-            return [f], 'singleton'
-
-    best_pair = min(
-        ((sum(1 for D in all_chars if fi in pos_map[D] and fj in pos_map[D]), [fi, fj])
-         for fi, fj in combinations(feat_list, 2) if no_other_has_all([fi, fj])),
-        default=(None, None)
-    )
-    if best_pair[1] is not None:
-        return best_pair[1], 'pair'
-
-    for triple in combinations(feat_list, 3):
-        if no_other_has_all(list(triple)):
-            return list(triple), 'triple'
-
-    return feat_list, 'full'
-
-
-def _slot_contrasts(char, similar_chars, pos_map, feat_freq):
-    """For each of char's similar neighbors, find same-slot different-component contrasts.
-    Returns list of {'vs': D, 'slot': s, 'ours': comp_C, 'theirs': comp_D},
-    one best contrast per neighbor, up to 4 neighbors total.
-    Prefers top-level slots (no dots) and rarer C-components."""
-    C = pos_map[char]
-
-    def slot_comp(feat):
-        if '=' not in feat: return None, None
-        slot, comp = feat.split('=', 1)
-        return slot.split('.')[0], comp
-
-    c_by_slot = defaultdict(set)
-    for f in C:
-        s, comp = slot_comp(f)
-        if s: c_by_slot[s].add(comp)
-
-    result = []
-    for D in similar_chars:
-        P = pos_map.get(D, set())
-        if not P: continue
-        d_by_slot = defaultdict(set)
-        for f in P:
-            s, comp = slot_comp(f)
-            if s: d_by_slot[s].add(comp)
-        slot_diffs = []
-        for s in c_by_slot:
-            if s not in d_by_slot: continue
-            diff_c = c_by_slot[s] - d_by_slot[s]
-            diff_d = d_by_slot[s] - c_by_slot[s]
-            if diff_c and diff_d:
-                best_c = min(diff_c, key=lambda comp: feat_freq.get(f'{s}={comp}', 0))
-                best_d = min(diff_d, key=lambda comp: feat_freq.get(f'{s}={comp}', 0))
-                slot_diffs.append((len(s), feat_freq.get(f'{s}={best_c}', 0), s, best_c, best_d))
-        if slot_diffs:
-            slot_diffs.sort()
-            _, _, s, best_c, best_d = slot_diffs[0]
-            result.append({'vs': D, 'slot': s, 'ours': best_c, 'theirs': best_d})
-    return result[:4]
-
-
-def _hd2_subcomps(comp):
-    """Return sorted list of HD level-2 sub-components of comp (excluding comp itself and NOISE)."""
-    try:
-        r = decomposer.decompose(comp, 2)
-        if r is None: return []
-        return sorted(c for c in r.get('components', []) if c and c != comp and c not in NOISE and _valid_comp(c))
-    except Exception:
-        return []
-
-
-def _feat_salience_score(feat, feat_freq, n_chars):
-    """salience(slot) × rarity(feat) — used to sort fingerprint features for card display.
-    Salience approximates visual area fraction; rarity = 1 - freq/n. Depth-nested slots
-    are discounted by 0.7 per nesting level."""
-    if '=' not in feat: return 0.5
-    slot_path = feat.split('=')[0]
-    top_slot = slot_path.split('.')[0]
-    sal = 0.5
-    for _, slot_map in _SLOT_SALIENCE.items():
-        if top_slot in slot_map:
-            sal = slot_map[top_slot]; break
-    sal *= 0.7 ** slot_path.count('.')
-    return sal * (1.0 - feat_freq.get(feat, 0) / n_chars)
-
-
-def _build_phonetic_families_mma(characters, mma_dict):
-    """Build phonetic families from MMA etymology annotation (covers ⿰, ⿱, ⿸, etc.).
-    Returns dict: char → (phonetic, semantic, sem_hint, [{char, semantic, hint}...]) for all
-    chars with ≥1 sibling sharing the same phonetic in the dataset."""
-    ch_ph, ch_sem, ch_hint = {}, {}, {}
-    for char in characters:
-        e = (mma_dict.get(char, {}).get('etymology') or {})
-        if e.get('type') != 'pictophonetic': continue
-        ph = e.get('phonetic'); sem = e.get('semantic'); hint = e.get('hint')
-        if ph: ph = _RADICAL_NORM.get(ph, ph)
-        if sem: sem = _RADICAL_NORM.get(sem, sem)
-        if ph: ch_ph[char] = ph
-        if sem: ch_sem[char] = sem
-        if hint: ch_hint[char] = hint
-    ph_to_chars = defaultdict(list)
-    for char, ph in ch_ph.items():
-        ph_to_chars[ph] += [char]
-    result = {}
-    for char, ph in ch_ph.items():
-        siblings = [d for d in ph_to_chars[ph] if d != char]
-        if siblings:
-            family = [{'char': d, 'semantic': ch_sem.get(d, '?'), 'hint': ch_hint.get(d, '?')} for d in siblings]
-            result[char] = (ph, ch_sem.get(char), ch_hint.get(char), family)
-    return result
-
-
-def build_char_index(characters, ids_dict, mma_dict=None, char_dict=None, threshold=0.25):
-    """Build global fingerprint, joint identity, and contrastive pairs for every character.
-    Returns a dict keyed by character:
-      components        — pos-features from global discriminating set, salience-reranked
-      identity          — singleton / pair / triple / full / subset / stroke_count
-      joint             — pos-features forming the minimal unique conjunction
-      similar           — up to 8 most similar chars (Jaccard >= threshold)
-      contrasts         — slot contrasts vs nearest lookalikes: [{vs, slot, ours, theirs}]
-      component_hints   — HD L2 breakdown for each rare component: {'R=夌': ['八','土','夂']}
-      stroke_count      — total stroke count (from char_dict)
-      hsk_level         — HSK level 1-7 if in HSK (from char_dict statistics)
-      frequency_rank    — corpus frequency rank (from char_dict statistics)
-      definition        — short English gloss (from char_dict)
-      etymology         — {type, phonetic, semantic, hint} for pictophonetic chars, or
-                          {type, story} for ideographic/pictographic chars (from mma_dict)
-      phonetic          — phonetic component from MMA etymology (broader than IDS-inferred)
-      phonetic_family   — [{char, semantic, hint}] for all dataset chars sharing this phonetic
-      ids_str           — IDS string for subset characters
-    """
+def build_similarity_index(characters, ids_dict, threshold=0.25):
     pos_map = {c: get_pos_feats(c, ids_dict) for c in characters}
-    feat_freq = defaultdict(int)
-    for feats in pos_map.values():
-        for f in feats:
-            feat_freq[f] += 1
-    n = len(characters)
-    phonetic_families = _build_phonetic_families_mma(characters, mma_dict) if mma_dict else {}
     result = {}
     for char in characters:
-        gf, similar, gf_type = global_fingerprint(char, pos_map, characters, threshold)
-        ji, ji_type = joint_identity(char, pos_map, characters)
-        contrasts = _slot_contrasts(char, similar, pos_map, feat_freq)
-        gf_sorted = sorted(gf, key=lambda f: _feat_salience_score(f, feat_freq, n), reverse=True)
-        hints = {}
-        for feat in gf_sorted:
-            if '=' not in feat: continue
-            comp = feat.split('=', 1)[1]
-            comp_count = sum(1 for f2 in feat_freq if f2.endswith(f'={comp}'))
-            if comp_count <= 5:
-                subs = _hd2_subcomps(comp)
-                if subs:
-                    hints[feat] = subs
-        identity = ji_type if gf_type != 'subset' else 'subset'
-        entry = {'components': gf_sorted, 'identity': identity, 'joint': ji, 'similar': similar, 'contrasts': contrasts}
-        if hints:
-            entry['component_hints'] = hints
-        if mma_dict:
-            mma_e = (mma_dict.get(char, {}).get('etymology') or {})
-            etype = mma_e.get('type')
-            if etype == 'pictophonetic':
-                entry['etymology'] = {'type': 'pictophonetic', 'phonetic': mma_e.get('phonetic'), 'semantic': mma_e.get('semantic'), 'hint': mma_e.get('hint')}
-            elif etype in ('ideographic', 'pictographic') and mma_e.get('hint'):
-                entry['etymology'] = {'type': etype, 'story': mma_e['hint']}
-        if char in phonetic_families:
-            ph, _, _, family = phonetic_families[char]
-            entry['phonetic'] = ph
-            entry['phonetic_family'] = family
-        if char_dict:
-            cd = char_dict.get(char, {})
-            sc = cd.get('strokeCount')
-            if sc: entry['stroke_count'] = sc
-            stats = cd.get('statistics') or {}
-            hsk = stats.get('hskLevel')
-            if hsk: entry['hsk_level'] = hsk
-            rank = stats.get('bookCharRank')
-            if rank: entry['frequency_rank'] = rank
-            gloss = cd.get('gloss', '')
-            if gloss: entry['definition'] = gloss
-            # stroke_count rescue: subset chars whose stroke count differs from all similar chars
-            if identity == 'subset' and sc:
-                same_sc = [s for s in similar if (char_dict.get(s) or {}).get('strokeCount', sc) == sc]
-                if not same_sc:
-                    entry['identity'] = 'stroke_count'
-        if gf_type == 'subset':
-            entry['ids_str'] = ids_dict.get(char, {}).get('ids', char)
-        result[char] = entry
+        feats = pos_map[char]
+        threats = sorted([(other, _jaccard(feats, pos_map[other])) for other in characters if other != char and _jaccard(feats, pos_map[other]) >= threshold], key=lambda item: -item[1])
+        result[char] = {'similar': [other for other, _ in threats[:8]]}
     return result
 
 
-# ── per-approach component files ─────────────────────────────────────────────
-
-def write_component_files(characters, ids_dict, similar_idx=None, mma_dict=None, memo_dict=None, output_dir='.'):
-    """Build a set of components for each character using multiple decomposition approaches.
-
-    Each approach produces a {char: [comp, ...]} JSON file. Components are filtered to
-    those that vary among the character's confusable neighbours (from similar_idx) —
-    components shared by ALL neighbours are excluded.
-
-    Output:
-      data_components_direct.json     — depth-1 IDS children, positional reading order
-      data_components_all.json        — full recursive IDS component set, BFS depth-order
-      data_components_hanzi.json      — HanziDecomposer level-2 (independent source)
-      data_components_radical.json    — KangXi radical from MMA  (mma_dict)
-      data_components_memodevice.json — curated typed components, meaning→sound→iconic  (memo_dict)
-      data_components_meaning.json    — meaning-type components only  (memo_dict)
-      data_components_family.json     — components shared by ≥50% of confusables (group binding)
-      data_components_consensus.json  — strict direct∩memodevice intersection  (memo_dict)
-      data_components_hint.json        — CJK characters named in free-text hint field  (memo_dict)
-      data_components_rare.json        — globally rare components (appear in ≤2% of chars), rarest first
-      data_components_contrastive.json — unique vs single closest confusable only (from all_map)
-      data_components_pinyin.json       — components sharing the character's pinyin syllable  (mma_dict)
-      data_components_pos_inv.json      — position-invariant confusable set (bare component Jaccard)
-      data_components_mma_semantic.json — MMA etymology semantic component  (mma_dict)
-      data_components_memo_diff.json    — memodevice components absent from IDS  (memo_dict)
-      data_components_absent.json       — components present in confusables but absent from this char
-      data_components_hsk_anchor.json   — discriminating all_map components with HSK level, by level order
-      data_components_sem_sibling.json  — discrimination within KangXi radical family  (mma_dict)
-      data_components_sem_absent.json   — components in radical siblings absent from this char  (mma_dict)
-      data_components_homophone.json    — discrimination within homophone group  (mma_dict)
-      data_components_phonetic_scope.json — discrimination within tone-stripped syllable group  (mma_dict)
-      data_components_merged.json       — confirmed by ≥2 approaches (direct/all/hanzi/radical/memodevice)
-
-    Approaches:
-      direct       — immediate structural parts from the depth-1 IDS operator (positional order)
-      all          — full recursive IDS ancestry (superset of direct); BFS depth-order so shallower
-                     (more visually prominent) components come first
-      hanzi        — HanziDecomposer level-2; independent source, often finer-grained than IDS
-      radical      — single KangXi radical from MMA; culturally grounded, always one entry
-      memodevice   — typed decomposition from data/derived/memodevice/data_memodevice.json; meaning→sound→iconic
-      meaning      — meaning-type components only from memodevice; semantic core
-      family       — components shared by ≥50% of confusables; inverse of discriminating: shows
-                     what binds the confusion group rather than what differs. NOT filtered by
-                     _discriminating. Ordered by share fraction descending.
-      consensus    — strict intersection of direct∩memodevice; only components both IDS structure
-                     and memodevice agree on at the named sub-character level
-      hint         — CJK characters mentioned in the free-text hint field of memodevice, in
-                     text-appearance order; captures what the human author chose to describe first
-      rare         — globally rare components from all_map (appear in ≤~2% of dataset), sorted by
-                     ascending global frequency; NOT filtered by _discriminating
-      contrastive  — components unique to this character vs its single closest confusable (highest
-                     Jaccard); BFS order
-      pinyin       — components from all_map sharing the character's pinyin syllable (tone-stripped);
-                     NOT filtered by _discriminating
-      pos_inv      — builds a position-invariant confusable set (bare all_map Jaccard ≥ 0.25, no
-                     slot labels), then applies _discriminating against it; surfaces cross-slot
-                     component-sharing pairs invisible to positional similarity
-      mma_semantic — MMA etymology 'semantic' field for pictophonetic chars; with _discriminating;
-                     different from 'meaning' (memodevice source) and 'family' (structural grouping)
-      memo_diff    — components in memo_map but absent from all_map (IDS); structural reanalyses
-                     where memodevice diverges from IDS (e.g. 明: memo_diff=[囧], IDS says [日])
-      absent       — components present in ≥1 visual confusable but absent from this char; ordered
-                     by count descending (most expected absence first); NOT filtered by _discriminating
-      hsk_anchor   — discriminating components (from all_map) that are themselves HSK vocabulary
-                     (have hsk_level in similar_idx); ordered by HSK level ascending; no new components,
-                     just a knowledge-state filter: which discriminating component does the learner
-                     already know as a vocabulary word?
-      sem_sibling  — discrimination within KangXi radical family: confusable set = all chars sharing
-                     the same MMA radical; applies _discriminating against this semantic group; for
-                     pictophonetic chars surfaces the phonetic component (the non-radical element that
-                     differs within the radical family); uses all_map Jaccard to pick 8 closest siblings
-      sem_absent   — complement to sem_sibling: components present in radical siblings' all_maps but
-                     absent from this char; ordered by how many siblings carry them; NOT filtered by
-                     _discriminating; gives the phonetic landscape of the radical family that C isn't
-                     part of
-      homophone    — discrimination within homophone group: confusable set = all dataset chars sharing
-                     ≥1 exact pinyin reading (with tone); applies _discriminating; surfaces structural
-                     components that tell homophones apart; completely independent of visual similarity
-      phonetic_scope — discrimination within tone-stripped syllable group: confusable set = all chars
-                     sharing the same initial+final (any tone); broader than homophone (4 tone groups
-                     merged); applies _discriminating; bridges between homophone (tight) and broader
-                     phonetic families
-      merged       — confirmed by ≥2 structural sources (direct/all/hanzi/radical/memodevice),
-                     vote-count order; empty when no component reaches the threshold
-    """
+def write_final_components(characters, ids_dict, similar_idx, output_path):
     def _ok(x): return x not in NOISE and (len(x) != 1 or _valid_comp(x))
-
-    def _direct_list(char):
+    def _final_norm(x): return _FINAL_REMAP.get(_RADICAL_NORM.get(x, x), _RADICAL_NORM.get(x, x))
+    def _final_ok(x): return _ok(_final_norm(x))
+    def _final_direct_list(char):
         seen, result = set(), []
         for item in (ids_dict.get(char, {}).get('decomposition', []) or []):
-            if isinstance(item, dict):
-                for children in item.values():
-                    for ch in children:
-                        if isinstance(ch, str):
-                            ch = _RADICAL_NORM.get(ch, ch)
-                            if ch != char and ch not in seen: seen.add(ch); result += [ch]
+            if not isinstance(item, dict): continue
+            for children in item.values():
+                for child in children:
+                    parts = []
+                    if isinstance(child, str): parts += [child]
+                    elif isinstance(child, dict):
+                        for nested in child.values():
+                            for part in nested:
+                                if isinstance(part, str): parts += [part]
+                    for part in parts:
+                        part = _final_norm(part)
+                        if part != char and _final_ok(part) and part not in seen: seen.add(part); result += [part]
         return result
-
     def _discriminating(char, comps_map):
-        """Return set of components of char not shared by ALL of its similar chars."""
         my = set(comps_map.get(char, []))
         if not my: return set()
-        similar = [s for s in ((similar_idx or {}).get(char, {}).get('similar', [])) if s in comps_map]
+        similar = [other for other in similar_idx.get(char, {}).get('similar', []) if other in comps_map]
         if not similar: return my
         common = my.copy()
-        for s in similar: common &= set(comps_map[s])
+        for other in similar: common &= set(comps_map[other])
         return my - common
-
-    def _bfs_leaves(char):
-        """All IDS leaf characters in BFS order: shallowest components first."""
-        tree = _parse_ids(ids_dict.get(char, {}).get('ids', ''))
-        if not tree: return []
-        seen, result, queue, i = set(), [], [tree], 0
-        while i < len(queue):
-            node = queue[i]; i += 1
-            if isinstance(node, str):
-                comp = _RADICAL_NORM.get(node, node)
-                if comp != char and comp not in seen and _ok(comp): seen.add(comp); result += [comp]
-            elif isinstance(node, tuple):
-                queue += node[1]
-        return result
-
     def _family_shared(char, comps_map, threshold=0.5):
-        """Components of char present in ≥threshold fraction of its similar chars.
-        Ordered by share fraction descending. Unlike _discriminating, returns what IS
-        shared — the group-binding components that define the confusion family."""
         my = set(comps_map.get(char, []))
-        if not my or not similar_idx: return []
-        similar = [s for s in (similar_idx.get(char, {}).get('similar', [])) if s in comps_map]
+        if not my: return []
+        similar = [other for other in similar_idx.get(char, {}).get('similar', []) if other in comps_map]
         if not similar: return []
         counts = defaultdict(int)
-        for s in similar:
-            for comp in comps_map.get(s, []):
+        for other in similar:
+            for comp in comps_map.get(other, []):
                 if comp in my: counts[comp] += 1
-        n = len(similar)
-        return sorted((comp for comp in my if counts[comp] / n >= threshold), key=lambda x: -counts[x])
+        return sorted((comp for comp in my if counts[comp] / len(similar) >= threshold), key=lambda comp: -counts[comp])
 
-    # ── build structural component maps ───────────────────────────────────────
-
-    # direct: IDS positional reading order (left→right, top→bottom)
-    direct_ordered = {c: [ch for ch in _direct_list(c) if _ok(ch)] for c in characters}
-    direct_map = {c: set(direct_ordered[c]) for c in characters}
-    direct = {}
+    final_direct = {c: _final_direct_list(c) for c in characters}
+    final_map = {c: set(final_direct[c]) for c in characters}
+    final_core = {}
     for c in characters:
-        disc = _discriminating(c, direct_map)
-        direct[c] = [ch for ch in direct_ordered[c] if ch in disc]
+        disc = _discriminating(c, final_map)
+        final_core[c] = [comp for comp in final_direct[c] if comp in disc]
+        if final_direct[c] and not final_core[c]: final_core[c] = final_direct[c]
 
-    # all: BFS depth-order (shallowest component first, tiebreak by tree position)
-    all_map = {c: set(x for x in (ids_dict.get(c, {}).get('components', []) or []) if x != c and _ok(x)) for c in characters}
-    all_recursive = {}
+    family = {c: _family_shared(c, final_map) for c in characters}
+    family_final = {}
     for c in characters:
-        disc = _discriminating(c, all_map)
-        ordered = [x for x in _bfs_leaves(c) if x in disc]
-        ordered += sorted(disc - set(ordered))
-        all_recursive[c] = ordered
-
-    # global component frequency across dataset (from all_map); used by rare and contrastive
-    global_freq = defaultdict(int)
-    for c in characters:
-        for comp in all_map[c]: global_freq[comp] += 1
-    _rare_thresh = max(1, len(characters) // 50)
-
-    # rare: globally rare components (≤~2% of dataset), rarest first; no discriminating filter
-    rare = {c: sorted((x for x in all_map[c] if global_freq[x] <= _rare_thresh), key=lambda x: global_freq[x]) for c in characters}
-
-    # hanzi: preserve HanziDecomposer output order
-    hanzi_ordered = {}
-    for c in characters:
-        try: r = decomposer.decompose(c, 2); raw = [x for x in (r.get('components', []) if r else []) if x and x != c and x not in NOISE and _valid_comp(x)]
-        except Exception: raw = []
         seen, ordered = set(), []
-        for x in raw:
-            if x not in seen: seen.add(x); ordered += [x]
-        hanzi_ordered[c] = ordered
-    hanzi_map = {c: set(hanzi_ordered[c]) for c in characters}
-    hanzi = {}
+        for comp in family[c]:
+            comp = _final_norm(comp)
+            if comp != c and _final_ok(comp) and comp not in seen: seen.add(comp); ordered += [comp]
+        family_final[c] = ordered
+
+    final = {}
     for c in characters:
-        disc = _discriminating(c, hanzi_map)
-        hanzi[c] = [ch for ch in hanzi_ordered[c] if ch in disc]
+        target, seen, ordered = set(family_final[c]) | set(final_core[c]), set(), []
+        for comp in final_direct[c]:
+            if comp in target and comp not in seen: seen.add(comp); ordered += [comp]
+        for comp in family_final[c] + final_core[c]:
+            if comp not in seen: seen.add(comp); ordered += [comp]
+        final[c] = ordered
 
-    files = [
-        ('data_components_direct.json', direct),
-        ('data_components_all.json',    all_recursive),
-        ('data_components_hanzi.json',  hanzi),
-        ('data_components_rare.json',   rare),
-    ]
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, 'w', encoding='utf-8') as f: json.dump(final, f, ensure_ascii=False, indent=2)
+    non_empty = sum(1 for comps in final.values() if comps)
+    print(f"  {output_path.name}: {non_empty}/{len(characters)} chars have components")
 
-    structural_maps = [direct_map, all_map, hanzi_map]
-
-    # ── family: group-binding components (NOT discriminating — shows what's shared) ──
-
-    family = {c: _family_shared(c, direct_map) for c in characters}
-    files += [('data_components_family.json', family)]
-
-    # ── contrastive: unique vs single closest confusable only ────────────────────
-
-    contrastive = {}
-    for c in characters:
-        similar = ((similar_idx or {}).get(c, {}).get('similar', []))
-        my = all_map.get(c, set())
-        closest = next((s for s in similar if s in all_map), None)
-        if closest is None: contrastive[c] = [x for x in _bfs_leaves(c) if x in my]
-        else:
-            unique = my - all_map.get(closest, set())
-            contrastive[c] = [x for x in _bfs_leaves(c) if x in unique]
-    files += [('data_components_contrastive.json', contrastive)]
-
-    # ── pos_inv: position-invariant confusable detection ─────────────────────
-    # Compute Jaccard over bare component sets (no slot labels). Use inverted index
-    # to avoid O(n²): for each char, only check chars sharing ≥1 component.
-    _comp_to_chars = defaultdict(set)
-    for c in characters:
-        for comp in all_map[c]: _comp_to_chars[comp].add(c)
-    _pos_inv_sim = {}
-    for c in characters:
-        my = all_map.get(c, set())
-        if not my: _pos_inv_sim[c] = []; continue
-        candidates = set().union(*(_comp_to_chars[comp] for comp in my)) - {c}
-        sims = sorted(((d, len(my & all_map[d]) / len(my | all_map[d])) for d in candidates if all_map.get(d)), key=lambda x: -x[1])
-        _pos_inv_sim[c] = [d for d, j in sims if j >= 0.25][:8]
-    pos_inv = {}
-    for c in characters:
-        my = all_map.get(c, set())
-        similar = [s for s in _pos_inv_sim.get(c, []) if s in all_map]
-        if not similar:
-            pos_inv[c] = [x for x in _bfs_leaves(c) if x in my]
-        else:
-            common = my.copy()
-            for s in similar: common &= all_map.get(s, set())
-            disc = my - common
-            bfs = _bfs_leaves(c)
-            pos_inv[c] = [x for x in bfs if x in disc] + sorted(disc - set(bfs))
-    files += [('data_components_pos_inv.json', pos_inv)]
-
-    # ── absent: diagnostic absences (components in confusables but not in this char) ──
-    # NOT filtered by _discriminating — the absence IS the discriminating signal.
-    # Ordered by count descending: how many confusables carry this component.
-    absent = {}
-    for c in characters:
-        my = all_map.get(c, set())
-        similar = [s for s in ((similar_idx or {}).get(c, {}).get('similar', [])) if s in all_map]
-        if not similar: absent[c] = []; continue
-        counts = defaultdict(int)
-        for s in similar:
-            for comp in all_map.get(s, set()):
-                if comp not in my and _ok(comp): counts[comp] += 1
-        absent[c] = sorted(counts.keys(), key=lambda x: -counts[x])
-    files += [('data_components_absent.json', absent)]
-
-    # ── hsk_anchor: discriminating components that are themselves HSK vocabulary ──
-    # Filter: component must have hsk_level in similar_idx (i.e., it's a standalone vocab word).
-    # Excludes radical forms (氵, 阝, etc.) that aren't in the study set; keeps named chars (马, 青, etc.).
-    hsk_anchor = {}
-    for c in characters:
-        disc = _discriminating(c, all_map)
-        if not disc: hsk_anchor[c] = []; continue
-        comp_hsk = []
-        for comp in disc:
-            lvl = ((similar_idx or {}).get(comp, {}).get('hsk_level')) if similar_idx else None
-            if lvl: comp_hsk += [(lvl, comp)]
-        comp_hsk.sort()
-        hsk_anchor[c] = [comp for _, comp in comp_hsk]
-    files += [('data_components_hsk_anchor.json', hsk_anchor)]
-
-    # ── KangXi radical (mma_dict) ─────────────────────────────────────────────
-
-    if mma_dict:
-        radical_ordered = {}
-        for c in characters:
-            r = mma_dict.get(c, {}).get('radical', '')
-            r = _RADICAL_NORM.get(r, r)
-            radical_ordered[c] = [r] if r and _ok(r) and r != c else []
-        radical_map = {c: set(radical_ordered[c]) for c in characters}
-        radical = {c: [r for r in radical_ordered[c] if r in _discriminating(c, radical_map)] for c in characters}
-        files += [('data_components_radical.json', radical)]
-        structural_maps += [radical_map]
-
-        # pinyin: components sharing the character's pinyin syllable; no discriminating filter
-        _all_pinyin = {}
-        for ch, entry in mma_dict.items():
-            stripped = {_strip_tone(p) for p in (entry.get('pinyin') or [])}
-            if stripped: _all_pinyin[ch] = stripped
-        pinyin_result = {}
-        for c in characters:
-            my_pinyins = _all_pinyin.get(c, set())
-            if not my_pinyins: pinyin_result[c] = []; continue
-            pinyin_result[c] = [comp for comp in _bfs_leaves(c) if comp in _all_pinyin and _all_pinyin[comp] & my_pinyins]
-        files += [('data_components_pinyin.json', pinyin_result)]
-
-        # mma_semantic: MMA etymology semantic component for pictophonetic chars; with _discriminating
-        mma_sem_ordered = {}
-        for c in characters:
-            etym = (mma_dict.get(c, {}).get('etymology') or {})
-            sem = etym.get('semantic', '') if etym.get('type') == 'pictophonetic' else ''
-            sem = _RADICAL_NORM.get(sem, sem)
-            mma_sem_ordered[c] = [sem] if sem and _ok(sem) and sem != c else []
-        mma_sem_map = {c: set(mma_sem_ordered[c]) for c in characters}
-        mma_semantic = {c: [s for s in mma_sem_ordered[c] if s in _discriminating(c, mma_sem_map)] for c in characters}
-        files += [('data_components_mma_semantic.json', mma_semantic)]
-
-        # sem_sibling: discrimination within KangXi radical family
-        # Confusable set = chars sharing the same MMA radical. Use 8 closest by all_map Jaccard
-        # so that large radical families (木 with 100+ chars) don't make every component discriminating.
-        _rad_to_chars = defaultdict(list)
-        for c in characters:
-            r = _RADICAL_NORM.get(mma_dict.get(c, {}).get('radical', ''), mma_dict.get(c, {}).get('radical', ''))
-            if r: _rad_to_chars[r] += [c]
-        sem_sibling = {}
-        for c in characters:
-            r = mma_dict.get(c, {}).get('radical', '')
-            r = _RADICAL_NORM.get(r, r)
-            if not r: sem_sibling[c] = []; continue
-            siblings = [m for m in _rad_to_chars.get(r, []) if m != c and all_map.get(m)]
-            my = all_map.get(c, set())
-            if not siblings: sem_sibling[c] = [x for x in _bfs_leaves(c) if x in my]; continue
-            closest = sorted(siblings, key=lambda m: -(len(my & all_map[m]) / len(my | all_map[m]) if my | all_map[m] else 0))[:8]
-            common = my.copy()
-            for m in closest: common &= all_map.get(m, set())
-            disc = my - common
-            bfs = _bfs_leaves(c)
-            sem_sibling[c] = [x for x in bfs if x in disc] + sorted(disc - set(bfs))
-        files += [('data_components_sem_sibling.json', sem_sibling)]
-
-        # homophone: discrimination within homophone group (chars sharing ≥1 exact pinyin reading)
-        _exact_pinyin_to_chars = defaultdict(list)
-        for c in characters:
-            for p in (mma_dict.get(c, {}).get('pinyin') or []):
-                _exact_pinyin_to_chars[p] += [c]
-        homophone = {}
-        for c in characters:
-            my_pinyins = mma_dict.get(c, {}).get('pinyin') or []
-            homophones = {h for p in my_pinyins for h in _exact_pinyin_to_chars.get(p, []) if h != c and all_map.get(h)}
-            my = all_map.get(c, set())
-            if not homophones: homophone[c] = []; continue
-            common = my.copy()
-            for h in homophones: common &= all_map.get(h, set())
-            disc = my - common
-            bfs = _bfs_leaves(c)
-            homophone[c] = [x for x in bfs if x in disc] + sorted(disc - set(bfs))
-        files += [('data_components_homophone.json', homophone)]
-
-        # phonetic_scope: discrimination within tone-stripped syllable group
-        # Broader than homophone (ignores tone); different from pinyin (finds carrier, not discriminator).
-        _syllable_to_chars = defaultdict(list)
-        for c in characters:
-            for p in (mma_dict.get(c, {}).get('pinyin') or []):
-                syl = _strip_tone(p)
-                if syl: _syllable_to_chars[syl] += [c]
-        phonetic_scope = {}
-        for c in characters:
-            my_sylls = {_strip_tone(p) for p in (mma_dict.get(c, {}).get('pinyin') or [])}
-            phoneme_grp = {h for syl in my_sylls for h in _syllable_to_chars.get(syl, []) if h != c and all_map.get(h)}
-            my = all_map.get(c, set())
-            if not phoneme_grp: phonetic_scope[c] = []; continue
-            common = my.copy()
-            for h in phoneme_grp: common &= all_map.get(h, set())
-            disc = my - common
-            bfs = _bfs_leaves(c)
-            phonetic_scope[c] = [x for x in bfs if x in disc] + sorted(disc - set(bfs))
-        files += [('data_components_phonetic_scope.json', phonetic_scope)]
-
-        # sem_absent: components in the 8 closest radical siblings that this char lacks
-        # uses same sibling selection as sem_sibling; complement: sem_sibling=what C has siblings lack,
-        # sem_absent=what closest siblings have that C lacks
-        sem_absent = {}
-        for c in characters:
-            r = mma_dict.get(c, {}).get('radical', '')
-            r = _RADICAL_NORM.get(r, r)
-            if not r: sem_absent[c] = []; continue
-            siblings = [m for m in _rad_to_chars.get(r, []) if m != c and all_map.get(m)]
-            my = all_map.get(c, set())
-            if not siblings: sem_absent[c] = []; continue
-            closest = sorted(siblings, key=lambda m: -(len(my & all_map[m]) / len(my | all_map[m]) if my | all_map[m] else 0))[:8]
-            counts = defaultdict(int)
-            for s in closest:
-                for comp in all_map.get(s, set()):
-                    if comp not in my and _ok(comp): counts[comp] += 1
-            sem_absent[c] = sorted(counts.keys(), key=lambda x: -counts[x])
-        files += [('data_components_sem_absent.json', sem_absent)]
-
-    # ── memodevice typed components (memo_dict) ───────────────────────────────
-
-    if memo_dict:
-        # memodevice: all curated components in meaning → sound → iconic order
-        memo_ordered = {}
-        for c in characters:
-            comps = (memo_dict.get(c) or {}).get('components') or []
-            ordered, seen = [], set()
-            for p_types in [['meaning'], ['sound'], None]:
-                for comp in comps:
-                    ch = comp.get('character', '')
-                    types = comp.get('type', [])
-                    if not ch or ch == c or ch in seen or not _ok(ch): continue
-                    if p_types is None or any(t in p_types for t in types):
-                        seen.add(ch); ordered += [ch]
-            memo_ordered[c] = ordered
-        memo_map = {c: set(memo_ordered[c]) for c in characters}
-        memodevice = {}
-        for c in characters:
-            disc = _discriminating(c, memo_map)
-            memodevice[c] = [ch for ch in memo_ordered[c] if ch in disc]
-
-        # meaning: meaning-type components only (semantic core)
-        meaning_ordered = {}
-        for c in characters:
-            comps = (memo_dict.get(c) or {}).get('components') or []
-            seen, raw = set(), []
-            for comp in comps:
-                ch = comp.get('character', '')
-                if 'meaning' in comp.get('type', []) and ch and ch != c and ch not in seen and _ok(ch):
-                    seen.add(ch); raw += [ch]
-            meaning_ordered[c] = raw
-        meaning_map = {c: set(meaning_ordered[c]) for c in characters}
-        meaning = {c: [ch for ch in meaning_ordered[c] if ch in _discriminating(c, meaning_map)] for c in characters}
-
-        # consensus: strict intersection of direct∩memodevice (positional reading order)
-        consensus_map = {c: direct_map.get(c, set()) & memo_map.get(c, set()) for c in characters}
-        consensus = {c: [ch for ch in direct_ordered[c] if ch in _discriminating(c, consensus_map)] for c in characters}
-
-        # hint: CJK characters from free-text hint field, in text-appearance order
-        hint_raw = {}
-        for c in characters:
-            hint_text = (memo_dict.get(c) or {}).get('hint', '')
-            seen, ordered = set(), []
-            for ch in _CJK_RE.findall(hint_text):
-                if ch != c and ch not in seen and _ok(ch): seen.add(ch); ordered += [ch]
-            hint_raw[c] = ordered
-        hint_map = {c: set(hint_raw[c]) for c in characters}
-        hint = {c: [ch for ch in hint_raw[c] if ch in _discriminating(c, hint_map)] for c in characters}
-
-        # memo_diff: memodevice components absent from IDS recursive ancestry
-        memo_diff_map = {c: memo_map.get(c, set()) - all_map.get(c, set()) for c in characters}
-        memo_diff_ordered = {c: [ch for ch in memo_ordered[c] if ch in memo_diff_map[c]] for c in characters}
-        memo_diff = {c: [ch for ch in memo_diff_ordered[c] if ch in _discriminating(c, memo_diff_map)] for c in characters}
-
-        files += [
-            ('data_components_memodevice.json', memodevice),
-            ('data_components_meaning.json',    meaning),
-            ('data_components_consensus.json',  consensus),
-            ('data_components_hint.json',       hint),
-            ('data_components_memo_diff.json',  memo_diff),
-        ]
-        structural_maps += [memo_map]
-
-    # ── merged: by vote count descending (most-confirmed component first) ─────
-
-    merged = {}
-    for c in characters:
-        counts = defaultdict(int)
-        for m in structural_maps:
-            for comp in _discriminating(c, m): counts[comp] += 1
-        merged[c] = sorted((comp for comp, n in counts.items() if n >= 2), key=lambda x: -counts[x])
-    files += [('data_components_merged.json', merged)]
-
-    for filename, data in files:
-        with open(os.path.join(output_dir, filename), 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        non_empty = sum(1 for v in data.values() if v)
-        print(f"  {filename}: {non_empty}/{len(characters)} chars have components")
-
-
-# ── main ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    with open(MEMODEVICE_DIR / "data_memodevice.json", "r", encoding="utf-8") as f:
-        data = json.load(f)
-    with open(REFERENCE_DIR / "ids_dictionary.json", "r", encoding="utf-8") as f:
-        ids_dict = json.load(f)
-
-    characters = [e['character'] for g in data.values() for e in g]
+    with open(MEMODEVICE_DIR / "data_memodevice.json", "r", encoding="utf-8") as f: data = json.load(f)
+    with open(REFERENCE_DIR / "ids_dictionary.json", "r", encoding="utf-8") as f: ids_dict = json.load(f)
+    characters = [entry['character'] for group in data.values() for entry in group]
     print(f"Processing {len(characters)} characters...")
-
-    OUT = DATA_DIR / "derived" / "components"
-    os.makedirs(OUT, exist_ok=True)
-
-    print("\nLoading MMA and char dictionaries...")
-    mma_lines = open(REFERENCE_DIR / "dictionary_makemeahanzi.txt", encoding="utf-8").readlines()
-    mma_dict = {d['character']: d for d in (json.loads(l) for l in mma_lines) if d.get('character')}
-    char_dict = {}
-    for line in open(REFERENCE_DIR / "dictionary_char.jsonl", encoding="utf-8"):
-        d = json.loads(line)
-        if d.get('char'): char_dict[d['char']] = d
-    print(f"  MMA: {len(mma_dict)} entries, char_dict: {len(char_dict)} entries")
-
-    print("\nBuilding global index (fingerprint + joint identity)...")
-    idx = build_char_index(characters, ids_dict, mma_dict=mma_dict, char_dict=char_dict)
-
-    memo_dict = {e['character']: e for g in data.values() for e in g}
-
-    print("\nWriting per-approach component files...")
-    write_component_files(characters, ids_dict, similar_idx=idx, mma_dict=mma_dict, memo_dict=memo_dict, output_dir=OUT)
+    print("\nBuilding visual confusable index for final approach...")
+    idx = build_similarity_index(characters, ids_dict)
+    print("\nWriting final component file...")
+    write_final_components(characters, ids_dict, idx, DATA_DIR / "derived" / "components" / "components.json")
