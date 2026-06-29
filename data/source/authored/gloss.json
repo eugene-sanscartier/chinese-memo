@@ -288,8 +288,8 @@
         "gloss_fr": "obtenir"
     },
     "彳": {
-        "gloss_en": "walk",
-        "gloss_fr": "marche"
+        "gloss_en": "walk radical",
+        "gloss_fr": "radical de marche"
     },
     "㝵": {
         "gloss_en": "to get",
@@ -436,7 +436,7 @@
         "gloss_fr": "soie"
     },
     "工": {
-        "gloss_en": "work",
+        "gloss_en": "labor",
         "gloss_fr": "travail"
     },
     "么": {
@@ -597,7 +597,7 @@
     },
     "开": {
         "gloss_en": "open",
-        "gloss_fr": "ouvert"
+        "gloss_fr": "ouvrir"
     },
     "廾": {
         "gloss_en": "two hands",
@@ -1260,8 +1260,8 @@
         "gloss_fr": "construire"
     },
     "廴": {
-        "gloss_en": "walk",
-        "gloss_fr": "marche"
+        "gloss_en": "walk radical",
+        "gloss_fr": "radical de marche"
     },
     "聿": {
         "gloss_en": "writing brush",
@@ -1296,7 +1296,7 @@
         "gloss_fr": "lumineux"
     },
     "件": {
-        "gloss_en": "piece",
+        "gloss_en": "item",
         "gloss_fr": "pièce"
     },
     "计": {
@@ -1436,8 +1436,8 @@
         "gloss_fr": "plateforme"
     },
     "展": {
-        "gloss_en": "open",
-        "gloss_fr": "ouvert"
+        "gloss_en": "unfold",
+        "gloss_fr": "déployer"
     },
     "尸": {
         "gloss_en": "sitting person",
@@ -1540,8 +1540,8 @@
         "gloss_fr": "oiseau"
     },
     "权": {
-        "gloss_en": "power",
-        "gloss_fr": "pouvoir"
+        "gloss_en": "authority",
+        "gloss_fr": "autorité"
     },
     "思": {
         "gloss_en": "think",
@@ -1860,7 +1860,7 @@
         "gloss_fr": "pas encore"
     },
     "远": {
-        "gloss_en": "distant",
+        "gloss_en": "far",
         "gloss_fr": "loin"
     },
     "影": {
@@ -2772,8 +2772,8 @@
         "gloss_fr": "crête ou sommet de colline"
     },
     "威": {
-        "gloss_en": "power",
-        "gloss_fr": "pouvoir"
+        "gloss_en": "authority",
+        "gloss_fr": "autorité"
     },
     "状": {
         "gloss_en": "form, shape",
@@ -2904,7 +2904,7 @@
         "gloss_fr": "si"
     },
     "右": {
-        "gloss_en": "right",
+        "gloss_en": "right side",
         "gloss_fr": "droit"
     },
     "哪": {
@@ -3044,7 +3044,7 @@
         "gloss_fr": "ne pas"
     },
     "停": {
-        "gloss_en": "stop",
+        "gloss_en": "halt",
         "gloss_fr": "arrêt"
     },
     "亭": {
@@ -3240,8 +3240,8 @@
         "gloss_fr": "ferme, solide"
     },
     "善": {
-        "gloss_en": "good",
-        "gloss_fr": "bien"
+        "gloss_en": "virtuous",
+        "gloss_fr": "vertueux"
     },
     "妈": {
         "gloss_en": "mother",
@@ -3556,7 +3556,7 @@
         "gloss_fr": "rosée"
     },
     "味": {
-        "gloss_en": "taste",
+        "gloss_en": "flavor",
         "gloss_fr": "goût"
     },
     "野": {
@@ -3644,7 +3644,7 @@
         "gloss_fr": "graduellement"
     },
     "救": {
-        "gloss_en": "save",
+        "gloss_en": "rescue",
         "gloss_fr": "sauver"
     },
     "贵": {
@@ -3801,7 +3801,7 @@
     },
     "臧": {
         "gloss_en": "good",
-        "gloss_fr": "bien"
+        "gloss_fr": "bon"
     },
     "臣": {
         "gloss_en": "minister",
@@ -3860,7 +3860,7 @@
         "gloss_fr": "être en harmonie, feuille"
     },
     "春": {
-        "gloss_en": "spring",
+        "gloss_en": "springtime",
         "gloss_fr": "printemps"
     },
     "𡗗": {
@@ -4145,15 +4145,15 @@
     },
     "顶": {
         "gloss_en": "top",
-        "gloss_fr": "haut"
+        "gloss_fr": "sommet"
     },
     "雪": {
         "gloss_en": "snow",
         "gloss_fr": "neige"
     },
     "练": {
-        "gloss_en": "practice",
-        "gloss_fr": "pratique"
+        "gloss_en": "exercise",
+        "gloss_fr": "exercice"
     },
     "迫": {
         "gloss_en": "coerce",
@@ -5136,8 +5136,8 @@
         "gloss_fr": "clair, lumineux"
     },
     "杜": {
-        "gloss_en": "stop",
-        "gloss_fr": "arrêt"
+        "gloss_en": "prevent",
+        "gloss_fr": "empêcher"
     },
     "奶": {
         "gloss_en": "milk",
@@ -5688,8 +5688,8 @@
         "gloss_fr": "rapidement"
     },
     "幅": {
-        "gloss_en": "piece",
-        "gloss_fr": "pièce"
+        "gloss_en": "measure word",
+        "gloss_fr": "classificateur"
     },
     "撒": {
         "gloss_en": "release, scatter",
@@ -5880,12 +5880,12 @@
         "gloss_fr": "boue"
     },
     "拔": {
-        "gloss_en": "pull up",
-        "gloss_fr": "tirer vers le haut"
+        "gloss_en": "pull out",
+        "gloss_fr": "arracher"
     },
     "犮": {
-        "gloss_en": "pull up",
-        "gloss_fr": "tirer vers le haut"
+        "gloss_en": "pull out",
+        "gloss_fr": "arracher"
     },
     "凤": {
         "gloss_en": "male phoenix",
@@ -5944,7 +5944,7 @@
         "gloss_fr": "turban"
     },
     "驶": {
-        "gloss_en": "sail",
+        "gloss_en": "navigate",
         "gloss_fr": "naviguer"
     },
     "堡": {
@@ -6336,8 +6336,8 @@
         "gloss_fr": "enterrer"
     },
     "晋": {
-        "gloss_en": "advance",
-        "gloss_fr": "avance"
+        "gloss_en": "progress",
+        "gloss_fr": "progrès"
     },
     "艰": {
         "gloss_en": "difficult",
@@ -7244,7 +7244,7 @@
         "gloss_fr": "vaste"
     },
     "昂": {
-        "gloss_en": "rise",
+        "gloss_en": "rise high",
         "gloss_fr": "hausse"
     },
     "薛": {
@@ -7752,7 +7752,7 @@
         "gloss_fr": "remplir"
     },
     "翁": {
-        "gloss_en": "old man",
+        "gloss_en": "elder",
         "gloss_fr": "vieux"
     },
     "愁": {
@@ -9192,8 +9192,8 @@
         "gloss_fr": "mains jointes sur la poitrine"
     },
     "妃": {
-        "gloss_en": "wife",
-        "gloss_fr": "femme"
+        "gloss_en": "consort",
+        "gloss_fr": "consort"
     },
     "蔑": {
         "gloss_en": "disdain",
@@ -10658,7 +10658,7 @@
     },
     "活": {
         "char": "活",
-        "gloss_en": "live",
+        "gloss_en": "alive",
         "gloss_fr": "vivant"
     },
     "打": {
@@ -10788,7 +10788,7 @@
     },
     "纪": {
         "char": "纪",
-        "gloss_en": "record",
+        "gloss_en": "chronicle",
         "gloss_fr": "chronique"
     },
     "采": {
@@ -10828,7 +10828,7 @@
     },
     "源": {
         "char": "源",
-        "gloss_en": "spring",
+        "gloss_en": "source",
         "gloss_fr": "source"
     },
     "范": {
@@ -10853,7 +10853,7 @@
     },
     "养": {
         "char": "养",
-        "gloss_en": "raise",
+        "gloss_en": "nurture",
         "gloss_fr": "élever"
     },
     "靠": {
@@ -10863,8 +10863,8 @@
     },
     "登": {
         "char": "登",
-        "gloss_en": "rise",
-        "gloss_fr": "monter"
+        "gloss_en": "climb",
+        "gloss_fr": "grimper"
     },
     "慢": {
         "char": "慢",
@@ -10978,7 +10978,7 @@
     },
     "戏": {
         "char": "戏",
-        "gloss_en": "play",
+        "gloss_en": "drama",
         "gloss_fr": "pièce de théâtre"
     },
     "访": {
@@ -11023,7 +11023,7 @@
     },
     "夺": {
         "char": "夺",
-        "gloss_en": "take by force",
+        "gloss_en": "seize by force",
         "gloss_fr": "prendre de force"
     },
     "乘": {
@@ -11103,7 +11103,7 @@
     },
     "抬": {
         "char": "抬",
-        "gloss_en": "lift",
+        "gloss_en": "raise",
         "gloss_fr": "lever"
     },
     "伏": {
@@ -11118,12 +11118,12 @@
     },
     "扎": {
         "char": "扎",
-        "gloss_en": "pull up",
+        "gloss_en": "lift up",
         "gloss_fr": "relever"
     },
     "碎": {
         "char": "碎",
-        "gloss_en": "break",
+        "gloss_en": "shatter",
         "gloss_fr": "casser"
     },
     "励": {
@@ -11268,8 +11268,8 @@
     },
     "秩": {
         "char": "秩",
-        "gloss_en": "order",
-        "gloss_fr": "ordre"
+        "gloss_en": "rank",
+        "gloss_fr": "rang"
     },
     "烂": {
         "char": "烂",
@@ -11278,7 +11278,7 @@
     },
     "炼": {
         "char": "炼",
-        "gloss_en": "smelt",
+        "gloss_en": "refine",
         "gloss_fr": "affiner"
     },
     "纹": {
@@ -11328,7 +11328,7 @@
     },
     "浩": {
         "char": "浩",
-        "gloss_en": "great",
+        "gloss_en": "vast",
         "gloss_fr": "vaste"
     },
     "挣": {
@@ -11423,7 +11423,7 @@
     },
     "脂": {
         "char": "脂",
-        "gloss_en": "fat",
+        "gloss_en": "grease",
         "gloss_fr": "graisse"
     },
     "逮": {
@@ -11478,7 +11478,7 @@
     },
     "钓": {
         "char": "钓",
-        "gloss_en": "fish",
+        "gloss_en": "go fishing",
         "gloss_fr": "pêcher"
     },
     "衔": {
@@ -11503,7 +11503,7 @@
     },
     "烝": {
         "char": "烝",
-        "gloss_en": "rise",
+        "gloss_en": "ascend",
         "gloss_fr": "s'élever"
     },
     "哑": {
@@ -11518,7 +11518,7 @@
     },
     "搁": {
         "char": "搁",
-        "gloss_en": "place",
+        "gloss_en": "set down",
         "gloss_fr": "placer"
     },
     "轩": {
@@ -11568,7 +11568,7 @@
     },
     "趟": {
         "char": "趟",
-        "gloss_en": "time",
+        "gloss_en": "occurrence",
         "gloss_fr": "fois"
     },
     "帆": {
@@ -11633,7 +11633,7 @@
     },
     "遏": {
         "char": "遏",
-        "gloss_en": "stop",
+        "gloss_en": "check",
         "gloss_fr": "arrêter"
     },
     "烁": {
@@ -11678,7 +11678,7 @@
     },
     "秉": {
         "char": "秉",
-        "gloss_en": "grasp",
+        "gloss_en": "hold",
         "gloss_fr": "tenir"
     },
     "挟": {
@@ -11738,7 +11738,7 @@
     },
     "拚": {
         "char": "拚",
-        "gloss_en": "risk",
+        "gloss_en": "take risks",
         "gloss_fr": "risquer"
     },
     "缀": {
@@ -11748,8 +11748,8 @@
     },
     "辶": {
         "char": "辶",
-        "gloss_en": "walk",
-        "gloss_fr": "marche"
+        "gloss_en": "walk radical",
+        "gloss_fr": "radical de marche"
     },
     "个": {
         "char": "个",
@@ -11875,11 +11875,11 @@
         "gloss_fr": "habiter"
     },
     "收": {
-        "gloss_en": "gather together",
-        "gloss_fr": "rassembler"
+        "gloss_en": "collect",
+        "gloss_fr": "collecter"
     },
     "叫": {
-        "gloss_en": "cry",
+        "gloss_en": "shout",
         "gloss_fr": "crier"
     },
     "𡈼": {
@@ -11947,11 +11947,11 @@
         "gloss_fr": "houle"
     },
     "赎": {
-        "gloss_en": "buy",
+        "gloss_en": "redeem",
         "gloss_fr": "racheter"
     },
     "俏": {
-        "gloss_en": "like",
+        "gloss_en": "pretty",
         "gloss_fr": "joli"
     },
     "釉": {
@@ -12028,7 +12028,7 @@
     },
     "亽": {
         "char": "亽",
-        "gloss_en": "kwukyel",
+        "gloss_en": "kwukyel mark",
         "gloss_fr": "kwukyel"
     },
     "统": {
@@ -12218,7 +12218,7 @@
     },
     "傻": {
         "char": "傻",
-        "gloss_en": "foolish",
+        "gloss_en": "silly",
         "gloss_fr": "insensé"
     },
     "爻": {
@@ -12228,7 +12228,7 @@
     },
     "臭": {
         "char": "臭",
-        "gloss_en": "smell",
+        "gloss_en": "odor",
         "gloss_fr": "odeur"
     },
     "芝": {
@@ -12278,7 +12278,7 @@
     },
     "笨": {
         "char": "笨",
-        "gloss_en": "foolish",
+        "gloss_en": "silly",
         "gloss_fr": "insensé"
     },
     "嘲": {
@@ -12388,7 +12388,7 @@
     },
     "丕": {
         "char": "丕",
-        "gloss_en": "great",
+        "gloss_en": "excellent",
         "gloss_fr": "excellent"
     },
     "壹": {
@@ -12452,7 +12452,7 @@
         "gloss_fr": "ruisseler"
     },
     "力": {
-        "gloss_en": "power",
+        "gloss_en": "strength",
         "gloss_fr": "force"
     },
     "讠": {
@@ -12472,7 +12472,7 @@
         "gloss_fr": "pousse"
     },
     "对": {
-        "gloss_en": "correct",
+        "gloss_en": "right",
         "gloss_fr": "correct"
     },
     "又": {
@@ -12492,7 +12492,7 @@
         "gloss_fr": "marcher"
     },
     "所": {
-        "gloss_en": "place",
+        "gloss_en": "location",
         "gloss_fr": "lieu"
     },
     "然": {
@@ -12540,7 +12540,7 @@
         "gloss_fr": "diviner"
     },
     "正": {
-        "gloss_en": "correct",
+        "gloss_en": "proper",
         "gloss_fr": "correct"
     },
     "最": {
@@ -12548,8 +12548,8 @@
         "gloss_fr": "le plus"
     },
     "攵": {
-        "gloss_en": "tap",
-        "gloss_fr": "taper, frapper"
+        "gloss_en": "strike",
+        "gloss_fr": "frapper"
     },
     "巾": {
         "gloss_en": "cloth",
@@ -12592,7 +12592,7 @@
         "gloss_fr": "affaires"
     },
     "做": {
-        "gloss_en": "work",
+        "gloss_en": "do, work",
         "gloss_fr": "travailler"
     },
     "艹": {
@@ -12608,7 +12608,7 @@
         "gloss_fr": "de plus"
     },
     "记": {
-        "gloss_en": "record",
+        "gloss_en": "note",
         "gloss_fr": "noter"
     },
     "告": {
@@ -12624,15 +12624,15 @@
         "gloss_fr": "pas"
     },
     "央": {
-        "gloss_en": "beg",
+        "gloss_en": "implore",
         "gloss_fr": "implorer"
     },
     "字": {
-        "gloss_en": "letter",
+        "gloss_en": "character",
         "gloss_fr": "caractère"
     },
     "息": {
-        "gloss_en": "rest",
+        "gloss_en": "repose",
         "gloss_fr": "repos"
     },
     "谈": {
@@ -12648,7 +12648,7 @@
         "gloss_fr": "Je, me"
     },
     "势": {
-        "gloss_en": "power",
+        "gloss_en": "force",
         "gloss_fr": "force"
     },
     "执": {
@@ -12684,7 +12684,7 @@
         "gloss_fr": "strict"
     },
     "乛": {
-        "gloss_en": "kwukyel",
+        "gloss_en": "kwukyel stroke",
         "gloss_fr": "trait (kwukyel)"
     },
     "施": {
@@ -12708,7 +12708,7 @@
         "gloss_fr": "mince, fin"
     },
     "愿": {
-        "gloss_en": "sincere",
+        "gloss_en": "wish",
         "gloss_fr": "souhait"
     },
     "网": {
@@ -12721,7 +12721,7 @@
     },
     "承": {
         "gloss_en": "bear, carry",
-        "gloss_fr": "supporter, porter"
+        "gloss_fr": "porter, supporter"
     },
     "谁": {
         "gloss_en": "who? whom? whose? anyone?",
@@ -12792,8 +12792,8 @@
         "gloss_fr": "lointain"
     },
     "副": {
-        "gloss_en": "assist",
-        "gloss_fr": "aide, adjoint"
+        "gloss_en": "deputy",
+        "gloss_fr": "adjoint"
     },
     "份": {
         "gloss_en": "portion",
@@ -12836,7 +12836,7 @@
         "gloss_fr": "bon"
     },
     "域": {
-        "gloss_en": "district",
+        "gloss_en": "domain",
         "gloss_fr": "région, domaine"
     },
     "括": {
@@ -12888,7 +12888,7 @@
         "gloss_fr": "petit-enfant"
     },
     "爷": {
-        "gloss_en": "father",
+        "gloss_en": "grandfather",
         "gloss_fr": "grand-père"
     },
     "篇": {
@@ -12924,7 +12924,7 @@
         "gloss_fr": "éclair"
     },
     "络": {
-        "gloss_en": "net",
+        "gloss_en": "network",
         "gloss_fr": "réseau"
     },
     "纯": {
@@ -12980,7 +12980,7 @@
         "gloss_fr": "une enfilade de 1000 pièces de monnaie"
     },
     "讯": {
-        "gloss_en": "inquire",
+        "gloss_en": "question",
         "gloss_fr": "interroger"
     },
     "艾": {
@@ -13025,7 +13025,7 @@
     },
     "署": {
         "gloss_en": "public office",
-        "gloss_fr": "office public, bureau"
+        "gloss_fr": "bureau officiel"
     },
     "奉": {
         "gloss_en": "offer",
@@ -13108,7 +13108,7 @@
         "gloss_fr": "heurter"
     },
     "滚": {
-        "gloss_en": "turn",
+        "gloss_en": "roll",
         "gloss_fr": "rouler"
     },
     "贡": {
@@ -13116,7 +13116,7 @@
         "gloss_fr": "offrir un tribut"
     },
     "朵": {
-        "gloss_en": "flower",
+        "gloss_en": "flower classifier",
         "gloss_fr": "classificateur (fleurs)"
     },
     "柔": {
@@ -13124,7 +13124,7 @@
         "gloss_fr": "doux, souple"
     },
     "籍": {
-        "gloss_en": "record",
+        "gloss_en": "register",
         "gloss_fr": "registre"
     },
     "牧": {
@@ -13152,7 +13152,7 @@
         "gloss_fr": "frapper"
     },
     "迁": {
-        "gloss_en": "move",
+        "gloss_en": "relocate",
         "gloss_fr": "déplacer"
     },
     "慰": {
@@ -13176,7 +13176,7 @@
         "gloss_fr": "cheville de roue"
     },
     "躲": {
-        "gloss_en": "hide",
+        "gloss_en": "hide oneself",
         "gloss_fr": "se cacher, éviter"
     },
     "紫": {
@@ -13212,8 +13212,8 @@
         "gloss_fr": "appuyer vers le bas"
     },
     "踏": {
-        "gloss_en": "step on",
-        "gloss_fr": "marcher sur; piétiner"
+        "gloss_en": "trample",
+        "gloss_fr": "piétiner"
     },
     "沓": {
         "gloss_en": "crowded, repeated",
@@ -13236,7 +13236,7 @@
         "gloss_fr": "vaste"
     },
     "拨": {
-        "gloss_en": "move",
+        "gloss_en": "shift",
         "gloss_fr": "déplacer"
     },
     "沃": {
@@ -13281,7 +13281,7 @@
     },
     "翰": {
         "gloss_en": "writing brush",
-        "gloss_fr": "pinceau d'écriture"
+        "gloss_fr": "pinceau à écrire"
     },
     "屏": {
         "gloss_en": "folding screen",
@@ -13340,7 +13340,7 @@
         "gloss_fr": "enfanter"
     },
     "卪": {
-        "gloss_en": "kwukyel",
+        "gloss_en": "kwukyel reading",
         "gloss_fr": "kwukyel (lecture)"
     },
     "杆": {
@@ -13360,7 +13360,7 @@
         "gloss_fr": "cueillir, prendre"
     },
     "矮": {
-        "gloss_en": "short",
+        "gloss_en": "short in height",
         "gloss_fr": "petit"
     },
     "吵": {
@@ -13420,7 +13420,7 @@
         "gloss_fr": "abîme, eaux profondes"
     },
     "痴": {
-        "gloss_en": "foolish",
+        "gloss_en": "stupid",
         "gloss_fr": "stupide"
     },
     "喃": {
@@ -13460,7 +13460,7 @@
         "gloss_fr": "porcelaine"
     },
     "稣": {
-        "gloss_en": "revive",
+        "gloss_en": "resurrect",
         "gloss_fr": "ressusciter"
     },
     "屁": {
@@ -13488,7 +13488,7 @@
         "gloss_fr": "mouiller"
     },
     "咨": {
-        "gloss_en": "inquire",
+        "gloss_en": "consult",
         "gloss_fr": "consulter"
     },
     "芦": {
@@ -13500,7 +13500,7 @@
         "gloss_fr": "étang; marais"
     },
     "株": {
-        "gloss_en": "tree trunk",
+        "gloss_en": "stock",
         "gloss_fr": "souche; pied"
     },
     "剖": {
@@ -13568,8 +13568,8 @@
         "gloss_fr": "se parer"
     },
     "淑": {
-        "gloss_en": "good",
-        "gloss_fr": "bon, vertueux"
+        "gloss_en": "virtuous",
+        "gloss_fr": "vertueux"
     },
     "钞": {
         "gloss_en": "paper money",
@@ -13580,7 +13580,7 @@
         "gloss_fr": "tordre"
     },
     "缅": {
-        "gloss_en": "distant",
+        "gloss_en": "remote",
         "gloss_fr": "éloigné"
     },
     "嗣": {
@@ -13624,8 +13624,8 @@
         "gloss_fr": "serrer dans ses bras"
     },
     "倏": {
-        "gloss_en": "hastily",
-        "gloss_fr": "soudainement"
+        "gloss_en": "sudden",
+        "gloss_fr": "soudain"
     },
     "鳍": {
         "gloss_en": "fin",
@@ -13680,11 +13680,11 @@
         "gloss_fr": "faire rapport à"
     },
     "浊": {
-        "gloss_en": "muddy",
+        "gloss_en": "turbid",
         "gloss_fr": "trouble"
     },
     "撼": {
-        "gloss_en": "move",
+        "gloss_en": "shake",
         "gloss_fr": "secouer"
     },
     "嗜": {
@@ -13692,11 +13692,11 @@
         "gloss_fr": "avoir un penchant pour"
     },
     "熏": {
-        "gloss_en": "smoke",
-        "gloss_fr": "fumée / enfumer"
+        "gloss_en": "fumigate",
+        "gloss_fr": "enfumer"
     },
     "忖": {
-        "gloss_en": "guess",
+        "gloss_en": "ponder",
         "gloss_fr": "songer / réfléchir"
     },
     "牡": {
@@ -13705,7 +13705,7 @@
     },
     "提": {
         "char": "提",
-        "gloss_en": "hold in hand",
+        "gloss_en": "carry in hand",
         "gloss_fr": "tenir à la main"
     },
     "念": {
@@ -13725,7 +13725,7 @@
     },
     "串": {
         "char": "串",
-        "gloss_en": "string",
+        "gloss_en": "string together",
         "gloss_fr": "ficelle, enfiler"
     },
     "签": {
@@ -13735,7 +13735,7 @@
     },
     "扑": {
         "char": "扑",
-        "gloss_en": "pound",
+        "gloss_en": "pounce",
         "gloss_fr": "se jeter sur"
     },
     "洁": {
@@ -13755,7 +13755,7 @@
     },
     "棚": {
         "char": "棚",
-        "gloss_en": "tent",
+        "gloss_en": "shelter",
         "gloss_fr": "abri"
     },
     "喀": {
@@ -13780,7 +13780,7 @@
     },
     "弯": {
         "char": "弯",
-        "gloss_en": "bend",
+        "gloss_en": "curve",
         "gloss_fr": "courber"
     },
     "啇": {
@@ -13809,7 +13809,7 @@
         "gloss_fr": "hydrogène"
     },
     "绒": {
-        "gloss_en": "silk",
+        "gloss_en": "down",
         "gloss_fr": "duvet"
     },
     "懈": {
@@ -13825,7 +13825,7 @@
         "gloss_fr": "épier"
     },
     "舶": {
-        "gloss_en": "large",
+        "gloss_en": "large ship",
         "gloss_fr": "grand navire"
     },
     "悼": {
