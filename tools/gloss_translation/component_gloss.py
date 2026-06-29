@@ -3,14 +3,42 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+from hanzipy.dictionary import HanziDictionary
+
 ROOT_DIR = Path(__file__).resolve().parents[2]
 COMPONENTS_PATH = ROOT_DIR / "data" / "derived" / "components" / "components.json"
-GLOSS_TRANSLATED_PATH = ROOT_DIR / "data" / "source" / "authored" / "gloss_translated.json"
+GLOSS_PATH = ROOT_DIR / "data" / "source" / "authored" / "gloss.json"
 DICTIONARY_CHAR_PATH = ROOT_DIR / "data" / "source" / "reference" / "dictionary_char.jsonl"
 CACHE_DIR = ROOT_DIR / "data" / "cache" / "component_gloss_translation"
 MISSING_GLOSS_PATH = CACHE_DIR / "missing_gloss.json"
 TRANSLATED_GLOSS_PATH = CACHE_DIR / "missing_gloss_translated.json"
 SUMMARY_PATH = CACHE_DIR / "summary.json"
+HANZIPY_RADICALS_PATH = Path("/home/eugene/.venv/venv/lib/python3.14/site-packages/hanzipy/data/radical_with_meanings.json")
+ONLINE_GLOSS_OVERRIDES = {
+    "⺳": "net",
+    "㳟": "respectful",
+    "弚": "younger brother",
+    "旲": "sunlight",
+    "洰": "ditch",
+    "茾": "herb",
+    "迶": "walking",
+    "龵": "hand",
+}
+PACKAGE_GLOSS_OVERRIDES = {
+    "倠": "bird",
+    "厈": "cliff",
+    "厽": "star",
+    "圡": "earth",
+    "圤": "clod",
+    "圼": "mud",
+    "巸": "broad",
+    "汒": "vast",
+    "犾": "dogs biting",
+    "疌": "rapid",
+    "豙": "enraged boar",
+    "遀": "follow",
+    "龴": "private, selfish",
+}
 
 
 def load_json(path):
@@ -32,10 +60,26 @@ def load_dictionary_char():
     return rows
 
 
+def load_hanzipy_radicals():
+    with open(HANZIPY_RADICALS_PATH, "r", encoding="utf-8") as file_obj: return json.load(file_obj)
+
+
+def get_hanzipy_gloss(component, dictionary, radicals):
+    if component in radicals: return radicals[component]
+    try:
+        entries = dictionary.definition_lookup(component)
+    except Exception:
+        return ""
+    if not entries: return ""
+    return entries[0].get("definition", "").split("/")[0].strip()
+
+
 def build_records():
     components_map = load_json(COMPONENTS_PATH)
-    gloss_translated = load_json(GLOSS_TRANSLATED_PATH)
+    gloss = load_json(GLOSS_PATH)
     dictionary_char = load_dictionary_char()
+    hanzipy_dictionary = HanziDictionary()
+    hanzipy_radicals = load_hanzipy_radicals()
     unique_components = sorted({component for components in components_map.values() for component in components})
     hosts = defaultdict(list)
     for char, components in components_map.items():
@@ -43,12 +87,15 @@ def build_records():
             if char not in hosts[component]: hosts[component] += [char]
     missing_gloss = {}
     for component in unique_components:
-        if component in gloss_translated: continue
+        if component in gloss: continue
         dict_gloss = dictionary_char.get(component, {}).get("gloss", "")
+        if not dict_gloss: dict_gloss = get_hanzipy_gloss(component, hanzipy_dictionary, hanzipy_radicals)
+        if not dict_gloss: dict_gloss = PACKAGE_GLOSS_OVERRIDES.get(component, "")
+        if component in ONLINE_GLOSS_OVERRIDES: dict_gloss = ONLINE_GLOSS_OVERRIDES[component]
         missing_gloss[component] = {"gloss_en": dict_gloss, "gloss_fr": "", "example_characters": hosts[component]}
     summary = {
         "unique_components": len(unique_components),
-        "covered_by_gloss_translated": sum(1 for component in unique_components if component in gloss_translated),
+        "covered_by_gloss": sum(1 for component in unique_components if component in gloss),
         "missing_gloss_total": len(missing_gloss),
         "missing_fr_translation": sum(1 for gloss in missing_gloss.values() if gloss["gloss_en"]),
         "missing_en_gloss": sum(1 for gloss in missing_gloss.values() if not gloss["gloss_en"]),

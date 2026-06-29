@@ -9,7 +9,7 @@ MEMODEVICE_DIR = DATA_DIR / "derived" / "memodevice"
 
 NOISE = set('一丨丶丿乙亅㇆㇉㇠㇇㇒㇗㇈㇏㇖㇗𠂇𠂉⺁⺙⺮⺈⺌⻊⺊⺹⻎') | {'No glyph available'}
 _RADICAL_NORM = {'⻖': '阝', '⻏': '阝', '⺼': '月', '⻌': '辶'}
-_COMPONENT_REMAP = {'⺌': '小', '⺮': '竹', '𧾷': '足', '𤣩': '王', '礻': '示', '牜': '牛', '𠆢': '人', '𫩠': '尚', '龸': '尚', '&CDP-8958;': '月', '㔾': '卩', '⺶': '羊', '⺇': '几', '⺗': '心', '⺧': '牛', '⺪': '疋', '⺢': '水', '⻤': '鬼', '龶': '丰'}
+_COMPONENT_REMAP = {'⺌': '小', '⺮': '竹', '𧾷': '足', '𤣩': '王', '礻': '示', '牜': '牛', '𠆢': '人', '𫩠': '尚', '龸': '尚', '&CDP-8958;': '月', '㔾': '卩', '⺶': '羊', '⺇': '几', '⺗': '心', '⺧': '牛', '⺪': '疋', '⺢': '水', '⻤': '鬼', '龶': '丰', '龷': '艹'}
 _SELF_COMPONENT_OVERRIDES = {'众', '森', '晶', '六', '只'}
 # Explicit host-character repairs for opaque/CDP families. Each entry records the
 # learner-facing replacement chosen for that specific character, not a global
