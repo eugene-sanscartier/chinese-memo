@@ -17,6 +17,7 @@ The output of each approach is filtered to the components that vary among the ch
 - **No slot labels**: component values must be bare characters (e.g. `木`, not `L=木` or `R=木`). Slot-labelled features are internal to `build_char_index` and must never appear in `data_components_*` output.
 - **Systematic ordering** — each approach has a fixed ordering rule:
   - `direct`: IDS positional reading order (left → right, top → bottom as written in the IDS string)
+  - `final`: structural appearance order from the refined direct decomposition; include both `family` and refined-direct components, with any unmatched leftovers appended in source order
   - `all`: BFS depth-order (shallowest component first, tiebreak by tree position); shallower = more visually prominent
   - `hanzi`: HanziDecomposer output order (preserve as returned)
   - `radical`: single entry; no ordering
@@ -36,9 +37,9 @@ The output of each approach is filtered to the components that vary among the ch
 | `memo_dict` | `data/derived/memodevice/data_memodevice.json` | `components` (typed: `meaning`/`sound`/`iconic`/`simplified`/`remnant`), `hint`, pinyin, gloss |
 | `char_dict` | `data/source/reference/dictionary_char.jsonl` | `strokeCount`, HSK level, corpus frequency rank, `gloss` |
 
-## Current output — `data_components/data_components_*.json`
+## Current output — `data/derived/components/`
 
-One file per decomposition approach. Each maps every character to a list of bare component characters — the discriminating subset of its full decomposition. Empty list means no discriminating component could be found for this approach (e.g. character's radical is shared with all its confusables).
+`components.json` is the active final output. Legacy non-final approach files live under `data/derived/components/approaches/`. Each output maps every character to a list of bare component characters — the discriminating subset of its full decomposition. Empty list means no discriminating component could be found for this approach (e.g. character's radical is shared with all its confusables).
 
 ```json
 {
@@ -48,11 +49,12 @@ One file per decomposition approach. Each maps every character to a list of bare
 }
 ```
 
-Active files: `direct`, `all`, `hanzi`, `rare`, `contrastive`, `family`, `radical`, `memodevice`, `meaning`, `consensus`, `hint`, `pinyin`, `pos_inv`, `mma_semantic`, `memo_diff`, `absent`, `hsk_anchor`, `sem_sibling`, `sem_absent`, `homophone`, `phonetic_scope`, `merged`.
+Active files: `direct`, `final`, `all`, `hanzi`, `rare`, `contrastive`, `family`, `radical`, `memodevice`, `meaning`, `consensus`, `hint`, `pinyin`, `pos_inv`, `mma_semantic`, `memo_diff`, `absent`, `hsk_anchor`, `sem_sibling`, `sem_absent`, `homophone`, `phonetic_scope`, `merged`.
 
 ## Implemented decomposition approaches
 
 - **Direct** — the immediate structural parts of a character: depth-1 IDS children in positional reading order.
+- **Final** — the card-targeted final approach. Combine `family` with the direct refinement, but order the result by structural appearance instead of forcing `family` first: unwrap non-target opaque direct chunks by one IDS level when possible, reapply the discrimination filter, keep raw `direct` as a fallback when the unwrap pass would otherwise erase a usable result, then place both `family` and refined-direct components according to the character's direct decomposition order. This preserves `direct` coverage, keeps shared confusion-group context, and avoids misleading order inversions: 授=`['扌','受']`; 尚=`['冂','口']`; 吵=`['口','少']`; 吊=`['口','巾']`; 耀=`['光','羽','隹']`.
 - **All** — the full recursive IDS ancestry (superset of direct), ordered by BFS depth so shallower (more visually prominent) components come first.
 - **Hanzi** — decomposition from HanziDecomposer, an independent source. Disagreements with IDS surface components the IDS tree misses; decomposes at finer granularity than IDS (near-primitive elements).
 - **Radical** — single KangXi radical from MMA (`mma_dict['radical']`). Always exactly one entry; the traditional dictionary-lookup component. Discriminating within phonetic families (each sibling has a different radical) but often shared within structural confusion sets.
