@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
 REFERENCE_DIR = DATA_DIR / "source" / "reference"
-DERIVED_DIR = DATA_DIR / "derived" / "cdp"
+DERIVED_DIR = DATA_DIR / "derived" / "entity_render"
 BUILD_DIR = ROOT_DIR / "build"
 IDS_PATH = REFERENCE_DIR / "ids_dictionary.json"
 MAP_PATH = DERIVED_DIR / "ids_dictionary_entity_render_map.json"

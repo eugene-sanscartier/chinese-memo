@@ -4,7 +4,7 @@
 
 - `tools/test_cdp_render.py`
 - `data/source/reference/ids_dictionary.json`
-- `data/derived/cdp/ids_dictionary_entity_render_map.json`
+- `data/derived/entity_render/ids_dictionary_entity_render_map.json`
 - `build/cdp_render_test.html`
 
 ## Goal
