@@ -145,6 +145,157 @@ Create a final component approach file for later Anki-card use, based on the dir
   - do not decompose `农`, `丧`, `畏`, `产`
   - use simpler named decompositions for `商`, `爱`, `受`, `襄`
   - use `帝 -> ['立','巾']`
+- Added the next explicit singleton repairs:
+  - `其 -> ['甘','八']`
+  - `直 -> ['直']`
+  - `南 -> ['南']`
+  - `北 -> ['北']`
+  - `带 -> ['带']`
+  - `争 -> ['争']`
+  - `单 -> ['单']`
+  - `曾 -> ['曾']`
+  - `尔 -> ['尔']`
+- Added the next explicit opaque-singleton repairs:
+  - `以 -> ['以']`
+  - `可 -> ['丁','口']`
+  - `那 -> ['冄','阝']`
+  - `发 -> ['发']`
+  - `原 -> ['厂','泉']`
+  - `武 -> ['戈','止']`
+  - `局 -> ['尸','句']`
+  - `摇 -> ['扌','䍃']`
+  - `典 -> ['冊','廾']`
+  - `延 -> ['廴','正']`
+  - `然 -> ['肰','灬']`
+  - `或 -> ['戈','口']`
+  - `制 -> ['制']`
+  - `唐 -> ['唐']`
+  - `丝 -> ['丝']`
+  - `象 -> ['象']`
+- Added the next user-confirmed opaque-singleton repairs:
+  - `与 -> ['与']`
+  - `度 -> ['广','廿','又']`
+  - `展 -> ['展']`
+  - `参 -> ['参']`
+  - `段 -> ['段']`
+  - `印 -> ['印']`
+  - `益 -> ['益']`
+  - `夜 -> ['夜']`
+  - `疑 -> ['疑']`
+  - `免 -> ['免']`
+  - `款 -> ['柰','欠']`
+  - `旅 -> ['旅']`
+  - `奥 -> ['奥']`
+  - `舞 -> ['舞']`
+  - `拜 -> ['手','𠦪']`
+  - `曼 -> ['曼']`
+  - `乌 -> ['乌']`
+  - `梁 -> ['氵','刅','木']`
+  - `妻 -> ['十','女']`
+- Refined three awkward coarse-vs-flat cases after review:
+  - `席 -> ['广','巾','廿']`
+  - `唐 -> ['广','口','廿']`
+  - `妻 -> ['十','女']`
+- Explicitly keep the next second-tier coarse candidates as self-components for now:
+  - `更`, `果`, `我`, `身`, `音`, `言`, `亦`, `谷`, `辛`, `鬼`, `鱼`, `龙`, `甫`, `辰`, `弗`, `夹`
+- Applied the final remaining opaque-entity cleanup:
+  - `饰 -> ['饣','巾']`
+  - `惠 -> ['叀','心']`
+  - `疆 -> ['弓','畺','土']`
+  - `伞 -> ['人','十','丷']`
+  - `淫 -> ['氵','爫','士']`
+  - `舆 -> ['舁','车']`
+  - `焉 -> ['正','灬']`
+  - `嗣 -> ['冊','司']`
+  - `顷 -> ['匕','页']`
+  - `詹 -> ['厃','言']`
+  - `燕 -> ['燕']`
+  - `曹 -> ['曹']`
+  - `兼 -> ['兼']`
+  - `肃 -> ['肃']`
+  - `寿 -> ['寿']`
+  - `匆 -> ['匆']`
+  - `衰 -> ['衰']`
+  - `祭 -> ['祭']`
+  - `函 -> ['函']`
+  - `卑 -> ['卑']`
+  - `脊 -> ['脊']`
+  - `鼎 -> ['鼎']`
+  - `勿 -> ['勿']`
+  - `甩 -> ['甩']`
+  - `隋 -> ['隋']`
+- Applied the next learner-facing cleanup for obscure-but-non-entity chunks:
+  - `兵 -> ['斤','廾']`
+  - `有 -> ['又','月']`
+  - `灰 -> ['又','火']`
+  - `葬 -> ['茻','死']`
+  - `敢 -> ['甘','攵','豕']`
+- Applied the next family-level cleanup for repeated obscure chunks:
+  - `赛 -> ['塞','贝']`
+  - `塞 -> ['塞']`
+  - `寒 -> ['塞','冫']`
+  - `寨 -> ['塞','木']`
+  - `族 -> ['方','矢']`
+  - `施 -> ['方','也']`
+  - `旋 -> ['方','疋']`
+  - `旗 -> ['方','其']`
+  - `监 -> ['监']`
+  - `临 -> ['监','品']`
+  - `觉 -> ['学','见']`
+  - `总 -> ['兑','心']`
+  - `兑 -> ['兑']`
+  - `盖 -> ['羊','皿']`
+- Corrected a missed earlier acceptance: the previously agreed non-disputed family replacements were then applied as well:
+  - `径/轻/经/劲/颈/氢/茎 -> 又+工 family`
+  - `畅/场/肠/杨/汤/扬 -> 昜 family`
+  - `载/裁/戴/截/栽/哉 -> readable 戈-based forms`
+  - `春/泰/奉/秦/奏 -> self or readable host-level forms`
+  - `营/劳/荣/莹/莺 -> self`
+  - `紧/坚/贤/肾/竖 -> consistent 刂+又-based forms`
+  - `朝/韩/翰/乾 -> readable 朝/倝-based forms`
+  - `释/译/泽/择 -> 又+二 family`
+  - `美/姜/羡 -> 羊-based forms`
+  - `具/兴/共 -> readable self or 廾-based forms`
+  - `学 -> ['学']`
+  - `报/服 -> 卩+又 family`
+  - `满/瞒 -> 艹+两 family`
+- Applied the next accepted cleanup batch while intentionally leaving the rejected proposals untouched:
+  - `反 -> ['厂','又']`
+  - `质 -> ['斤','贝']`
+  - `盾 -> ['十','目']`
+  - `成/司/幻 -> self`
+  - `船/铅/朵 -> 㕣/几-based readable forms`
+  - `炼/练/拣 -> 柬 family`
+  - `爷/卫/节 -> 卩 family`
+  - `追 -> ['追']`
+  - `薛 -> ['艹','㠯','辛']`
+  - `眉 -> ['尸','目']`
+  - `声 -> ['士','尸']`
+  - `幽/兹 -> self`
+  - `颐/姬 -> 臣 family`
+  - `蔑 -> ['艹','罒','戍']`
+  - `萝 -> ['艹','罗']`
+  - `琐/锁 -> 小+贝 family`
+  - `击/贵/后/卵/姊/派 -> self`
+  - `同 -> ['冂','口']`
+  - `定 -> ['宀','正']`
+  - `弱/害/应 -> self`
+  - `蜀 -> ['罒','勹','虫']`
+  - `解 -> ['角','刀','牛']`
+  - `厨 -> ['厂','尌']`
+  - `兽/举 -> self`
+  - intentionally left unchanged for now: `寝/侵/浸`
+  - later settled as self-components: `扁`, `遣`
+- Applied the next accepted singleton/family cleanup:
+  - `继/断 -> readable 米-based forms`
+  - `兜/黎/卒/拜/至/爵/殿/微/赢/餐/渊/能 -> self`
+  - `抛 -> ['扌','九','力']`
+  - `廷 -> ['廴','壬']`
+  - `隙 -> ['阝','小','日','小']`
+  - `辟 -> ['尸','口','辛']`
+  - `刷 -> ['尸','巾','刂']`
+  - `陋 -> ['阝','丙']`
+  - currently deferred for a better replacement: `鉴`, `览`, `德`, `舍`, `涩`, `腾`, `索`
 - Added a final fallback rule: when a character would otherwise have no components, use `[char]`.
 - Regenerated `final` and verified `components.json` now has `2998/2998` non-empty entries.
 - Confirmed that normal parent-plus-child direct cases requested to remain unchanged still do:
@@ -156,3 +307,25 @@ Create a final component approach file for later Anki-card use, based on the dir
 - Verified the harmful algorithmic mixed-granularity cases are gone and partial-loss unwrapping is eliminated:
   - old bad cases like `骸/孩/核/咳`, `抗`, `操`, `揭`, `俭`, `浇` no longer contain both a re-added parent and the split children created by recursive unwrapping
   - `0` partial-loss cases remain in the regenerated final output
+- Re-audited the remaining opaque output after those singleton repairs:
+  - `0` opaque components remain in `components.json`
+  - the final card-targeted output no longer contains any CDP/entity placeholders
+- Applied the last deferred explicit replacements:
+  - `鉴 -> ['臣','金']`
+  - `览 -> ['臣','见']`
+  - `德 -> ['德']`
+  - `舍 -> ['舍']`
+  - `涩 -> ['涩']`
+  - `腾 -> ['月','马','关']`
+  - `索 -> ['十','冖','糸']`
+- Regenerated `components.json` and verified those seven outputs exactly.
+- Applied the remaining cleanup pass for weird singleton chunks and repeated variant forms:
+  - self-components for opaque singletons where flatter splits were not clearly better: `化`, `傻`, `幸`, `嵌`, `步`, `夏`, `衡`, `寡`, `复`, `向`
+  - readable explicit repairs: `卸 -> ['缶','卩']`, `塌 -> ['土','日','羽']`, `莽 -> ['艹','犬','廾']`, `表 -> ['龶','衣']`, `佩 -> ['亻','凡','巾']`, `尉 -> ['尸','示','寸']`, `愣 -> ['忄','罒','方']`, `虐 -> ['虍','二']`, `撤 -> ['扌','育','攵']`
+  - repeated variant normalization: `㔾 -> 卩`, `⺶ -> 羊`
+  - removed duplicate override keys so `唐` and `拜` each have a single explicit definition
+- Regenerated `components.json` and verified:
+  - `0` non-BMP components remain in final output
+  - `卷/犯/厄/仓/危` now use `卩`
+  - `着/差/羞` now use `羊`
+  - `data_components.py` has `0` duplicate override keys
