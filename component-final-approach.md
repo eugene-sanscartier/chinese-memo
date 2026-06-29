@@ -329,3 +329,18 @@ Create a final component approach file for later Anki-card use, based on the dir
   - `卷/犯/厄/仓/危` now use `卩`
   - `着/差/羞` now use `羊`
   - `data_components.py` has `0` duplicate override keys
+- Applied the next user-approved remaining-family cleanup:
+  - repeated variant normalization: `⺇ -> 几`, `⺗ -> 心`, `⺧ -> 牛`, `⺪ -> 疋`, `⺢ -> 水`, `⻤ -> 鬼`, `龶 -> 丰`
+  - explicit family flattening: `船 -> ['舟','八','口']`, `铅 -> ['钅','八','口']`
+  - explicit host cleanup: `善 -> ['羊','口']`, `豆 -> ['豆']`, `气 -> ['气']`, `冒 -> ['冒']`
+  - explicit self-components by user choice: `关 -> ['关']`, `前 -> ['前']`
+  - intentionally left unchanged by user choice: `厃`, `危`, `詹`, `⺳/罕`, `卷/券/拳/眷`, `㐬`, `㠯`, and no `㐅 -> 乂` remap
+- Regenerated `components.json` and verified:
+  - `凤/凰 -> 几`
+  - `恭/慕 -> 心`
+  - `先/告 -> 牛`
+  - `船/铅 -> 八+口`
+  - `疏 -> ['疋','㐬']`
+  - `魁 -> ['鬼','斗']`
+  - `善/豆/气/冒/录/表/关/前` match the requested outputs exactly
+  - `危/詹/罕/卷/券/拳/眷/流/琉/梳/官/薛` stayed unchanged as requested
