@@ -116,7 +116,7 @@ def process_hint(hint: str) -> str:
 with open(AUTHORED_DIR / "memo.json", "r", encoding="utf-8") as file_obj:
     memo_data = json.load(file_obj)
 
-with open(AUTHORED_DIR / "gloss_translated.json", "r", encoding="utf-8") as file_obj:
+with open(AUTHORED_DIR / "gloss.json", "r", encoding="utf-8") as file_obj:
     gloss_list = json.load(file_obj)
 with open(AUTHORED_DIR / "definitions_selected.json", "r", encoding="utf-8") as file_obj:
     def_list = json.load(file_obj)

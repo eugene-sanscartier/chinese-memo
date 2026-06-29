@@ -300,7 +300,7 @@ def excelmemo_sets():
             dictionary_char += [entry]
     dictionary_char = {entry["char"]: entry for entry in dictionary_char if "char" in entry}
 
-    with open(AUTHORED_DIR / "gloss_translated.json", "r", encoding="utf-8") as file_obj:
+    with open(AUTHORED_DIR / "gloss.json", "r", encoding="utf-8") as file_obj:
         gloss_list = json.load(file_obj)
 
     with pandas.ExcelWriter(MEMODEVICE_DIR / "memo_sets.xlsx") as writer:

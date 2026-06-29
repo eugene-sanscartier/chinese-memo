@@ -1,5 +1,6 @@
 import os
 import json
+import argparse
 from pathlib import Path
 
 # Import the Google Cloud Translation library.
@@ -29,7 +30,11 @@ def translate_texts(texts: list[str] = "", source_language_code: str = "en", tar
 
 
 if __name__ == "__main__":
-    with open(ROOT_DIR / "data" / "source" / "authored" / "gloss.json", "r", encoding="utf-8") as file_obj:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True)
+    args = parser.parse_args()
+
+    with open(args.input, "r", encoding="utf-8") as file_obj:
         gloss_list: dict = json.load(file_obj)
 
     en_glosses = [gloss["gloss_en"] for char, gloss in gloss_list.items()][:]
