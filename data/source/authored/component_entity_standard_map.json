@@ -1,0 +1,290 @@
+{
+  "scope": "entity components currently present in components.json",
+  "inputs": [
+    "data/derived/components/components.json",
+    "data/derived/memodevice/data_memodevice.json",
+    "data/source/reference/dictionary_makemeahanzi.txt"
+  ],
+  "method": "For each entity, use the characters where it appears in final to infer a more standard replacement. For each host character, compare final components against memodevice components and MMA phonetic/semantic fields, then aggregate the missing candidates. Only confident contextual winners are included in mapped.",
+  "mapped": {
+    "&CDP-88C8;": {
+      "replacement": "甚",
+      "confidence": "high",
+      "appears_in": ["堪", "其", "勘"],
+      "character_evidence": {"堪": ["甚"], "其": ["甘", "一", "八"], "勘": ["甚"]}
+    },
+    "&CDP-88F1;": {
+      "replacement": "才",
+      "confidence": "high",
+      "appears_in": ["在", "存"],
+      "character_evidence": {"在": ["才", "士"], "存": ["才"]}
+    },
+    "&CDP-895C;": {
+      "replacement": "纟",
+      "confidence": "medium",
+      "appears_in": ["丝"],
+      "character_evidence": {"丝": ["纟"]}
+    },
+    "&CDP-8968;": {
+      "replacement": "刂",
+      "confidence": "high",
+      "appears_in": ["师", "归", "帅"],
+      "character_evidence": {"师": ["刂", "帀"], "归": ["刂"], "帅": ["刂"]}
+    },
+    "&CDP-89AB;": {
+      "replacement": "羊",
+      "confidence": "high",
+      "appears_in": ["介", "养", "乔"],
+      "character_evidence": {"介": ["人", "◎"], "养": ["羊", "介", "儿"], "乔": ["◎", "高"]}
+    },
+    "&CDP-8A65;": {
+      "replacement": "啬",
+      "confidence": "high",
+      "appears_in": ["墙", "丧"],
+      "character_evidence": {"墙": ["啬"], "丧": ["桑", "吅", "亡"]}
+    },
+    "&CDP-8A6D;": {
+      "replacement": "堇",
+      "confidence": "high",
+      "appears_in": ["勤", "谨"],
+      "character_evidence": {"勤": ["堇"], "谨": ["堇"]}
+    },
+    "&CDP-8B7A;": {
+      "replacement": "攸",
+      "confidence": "high",
+      "appears_in": ["修", "悠", "倏"],
+      "character_evidence": {"修": ["攸"], "悠": ["攸"], "倏": []}
+    },
+    "&CDP-8B7C;": {
+      "replacement": "皀",
+      "confidence": "medium",
+      "appears_in": ["即", "既"],
+      "character_evidence": {"即": ["皀"], "既": ["皀"]}
+    },
+    "&CDP-8BAE;": {
+      "replacement": "啇",
+      "confidence": "high",
+      "appears_in": ["产", "毅", "商", "滴", "摘"],
+      "character_evidence": {"产": ["彦", "生"], "毅": ["豙"], "商": ["辛", "丙", "章"], "滴": ["啇"], "摘": ["啇"]}
+    },
+    "&CDP-8BB5;": {
+      "replacement": "肰",
+      "confidence": "high",
+      "appears_in": ["然"],
+      "character_evidence": {"然": ["肰"]}
+    },
+    "&CDP-8BB8;": {
+      "replacement": "舜",
+      "confidence": "high",
+      "appears_in": ["瞬", "受", "爱"],
+      "character_evidence": {"瞬": ["舜"], "受": ["爫", "舟"], "爱": ["旡"]}
+    },
+    "&CDP-8BC4;": {
+      "replacement": "泉",
+      "confidence": "high",
+      "appears_in": ["原"],
+      "character_evidence": {"原": ["泉"]}
+    },
+    "&CDP-8BC7;": {
+      "replacement": "矦",
+      "confidence": "high",
+      "appears_in": ["候", "侯"],
+      "character_evidence": {"候": ["矦"], "侯": ["◎", "矢"]}
+    },
+    "&CDP-8BD0;": {
+      "replacement": "叀",
+      "confidence": "high",
+      "appears_in": ["惠"],
+      "character_evidence": {"惠": ["叀"]}
+    },
+    "&CDP-8BEA;": {
+      "replacement": "刂",
+      "confidence": "medium",
+      "appears_in": ["辨", "班"],
+      "character_evidence": {"辨": ["刂"], "班": ["刂"]}
+    },
+    "&CDP-8C66;": {
+      "replacement": "人",
+      "confidence": "medium",
+      "appears_in": ["旅"],
+      "character_evidence": {"旅": ["㫃", "人"]}
+    },
+    "&CDP-8C69;": {
+      "replacement": "卯",
+      "confidence": "high",
+      "appears_in": ["留", "贸"],
+      "character_evidence": {"留": ["卯"], "贸": ["卯"]}
+    },
+    "&CDP-8C79;": {
+      "replacement": "叚",
+      "confidence": "high",
+      "appears_in": ["暇", "霞", "假"],
+      "character_evidence": {"暇": ["叚"], "霞": ["叚"], "假": ["叚"]}
+    },
+    "&CDP-8C7A;": {
+      "replacement": "叚",
+      "confidence": "high",
+      "appears_in": ["暇", "霞", "假"],
+      "character_evidence": {"暇": ["叚"], "霞": ["叚"], "假": ["叚"]}
+    },
+    "&CDP-8CBD;": {
+      "replacement": "卬",
+      "confidence": "high",
+      "appears_in": ["昂", "迎", "仰", "抑"],
+      "character_evidence": {"昂": ["卬"], "迎": ["卬"], "仰": ["卬"], "抑": ["印", "卬"]}
+    },
+    "&CDP-8CC3;": {
+      "replacement": "言",
+      "confidence": "high",
+      "appears_in": ["詹"],
+      "character_evidence": {"詹": ["八", "言", "厂"]}
+    },
+    "&CDP-8CC8;": {
+      "replacement": "囱",
+      "confidence": "high",
+      "appears_in": ["窗"],
+      "character_evidence": {"窗": ["囱"]}
+    },
+    "&CDP-8CDE;": {
+      "replacement": "禾",
+      "confidence": "medium",
+      "appears_in": ["兼"],
+      "character_evidence": {"兼": ["禾", "又"]}
+    },
+    "&CDP-8CE0;": {
+      "replacement": "敫",
+      "confidence": "high",
+      "appears_in": ["邀", "缴", "激"],
+      "character_evidence": {"邀": ["敫"], "缴": ["敫"], "激": ["敫"]}
+    },
+    "&CDP-8CE6;": {
+      "replacement": "寅",
+      "confidence": "high",
+      "appears_in": ["演"],
+      "character_evidence": {"演": ["寅"]}
+    },
+    "&CDP-8D41;": {
+      "replacement": "卯",
+      "confidence": "high",
+      "appears_in": ["卿", "聊", "柳"],
+      "character_evidence": {"卿": ["卯", "丨", "彐", "乚", "丶"], "聊": ["卯"], "柳": ["卯"]}
+    },
+    "&CDP-8D67;": {
+      "replacement": "庶",
+      "confidence": "high",
+      "appears_in": ["遮"],
+      "character_evidence": {"遮": ["庶"]}
+    },
+    "&CDP-8D7C;": {
+      "replacement": "奥",
+      "confidence": "high",
+      "appears_in": ["噢", "澳"],
+      "character_evidence": {"噢": ["奥"], "澳": ["奥"]}
+    },
+    "&CDP-8DB3;": {
+      "replacement": "巾",
+      "confidence": "high",
+      "appears_in": ["饰"],
+      "character_evidence": {"饰": ["巾"]}
+    },
+    "&CDP-8DBB;": {
+      "replacement": "冊",
+      "confidence": "high",
+      "appears_in": ["嗣"],
+      "character_evidence": {"嗣": ["口", "冊"]}
+    },
+    "&GT-00154;": {
+      "replacement": "亥",
+      "confidence": "high",
+      "appears_in": ["骇", "刻", "该", "骸", "孩", "核", "咳"],
+      "character_evidence": {"骇": ["亥"], "刻": ["亥"], "该": ["言", "亥"], "骸": [], "孩": [], "核": [], "咳": []}
+    },
+    "&GT-K00059;": {
+      "replacement": "八",
+      "confidence": "medium",
+      "appears_in": ["六", "只"],
+      "character_evidence": {"六": ["八"], "只": ["八"]}
+    },
+    "&U-i003+5915;": {
+      "replacement": "彖",
+      "confidence": "high",
+      "appears_in": ["缘"],
+      "character_evidence": {"缘": ["彖"]}
+    },
+    "&o-UU+4343;": {
+      "replacement": "䍃",
+      "confidence": "high",
+      "appears_in": ["摇"],
+      "character_evidence": {"摇": ["䍃"]}
+    }
+  },
+  "unresolved_entities": [
+    "&CDP-88D2;",
+    "&CDP-895F;",
+    "&CDP-8964;",
+    "&CDP-8974;",
+    "&CDP-897D;",
+    "&CDP-89A6;",
+    "&CDP-89BE;",
+    "&CDP-89D5;",
+    "&CDP-89D7;",
+    "&CDP-89DE;",
+    "&CDP-89E2;",
+    "&CDP-89E5;",
+    "&CDP-89EB;",
+    "&CDP-89EC;",
+    "&CDP-89EE;",
+    "&CDP-89EF;",
+    "&CDP-89F3;",
+    "&CDP-89F6;",
+    "&CDP-89FA;",
+    "&CDP-8A43;",
+    "&CDP-8A64;",
+    "&CDP-8AC0;",
+    "&CDP-8B63;",
+    "&CDP-8BA5;",
+    "&CDP-8BA8;",
+    "&CDP-8BBE;",
+    "&CDP-8BBF;",
+    "&CDP-8BC5;",
+    "&CDP-8BCB;",
+    "&CDP-8BD9;",
+    "&CDP-8BDC;",
+    "&CDP-8BE2;",
+    "&CDP-8BEC;",
+    "&CDP-8BF5;",
+    "&CDP-8BFE;",
+    "&CDP-8C46;",
+    "&CDP-8C4F;",
+    "&CDP-8C52;",
+    "&CDP-8C6A;",
+    "&CDP-8CA3;",
+    "&CDP-8CA9;",
+    "&CDP-8CAC;",
+    "&CDP-8CB8;",
+    "&CDP-8CBF;",
+    "&CDP-8CC1;",
+    "&CDP-8CC6;",
+    "&CDP-8CCE;",
+    "&CDP-8CE4;",
+    "&CDP-8CE5;",
+    "&CDP-8CE7;",
+    "&CDP-8CF0;",
+    "&CDP-8D40;",
+    "&CDP-8D61;",
+    "&CDP-8D62;",
+    "&CDP-8D76;",
+    "&CDP-8DB8;",
+    "&CDP-8DBC;",
+    "&CDP-8DBF;",
+    "&CDP-8DD8;",
+    "&GT-36324;",
+    "&GT-K01085;",
+    "&GT-K02033;",
+    "&GT-K02380;",
+    "&GT-K06261;",
+    "&U-i001+20541;"
+  ],
+  "mapped_count": 35,
+  "unresolved_count": 65
+}
