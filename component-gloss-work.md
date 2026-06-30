@@ -15,7 +15,7 @@
 
 ## Goal
 
-Build the missing component-gloss queue from the final component set, prepare any needed cache-side translations, merge the finished component glosses into authored gloss data, and now audit existing authored glosses for clear English/French sense mismatches.
+Build the missing component-gloss queue from the final component set, prepare any needed cache-side translations, merge the finished component glosses into authored gloss data, and finalize the suspicious-gloss audit into one retained review artifact plus reviewed authored gloss fixes.
 
 ## Confirmed decisions
 
@@ -29,7 +29,7 @@ Build the missing component-gloss queue from the final component set, prepare an
 - Keep the queue fields minimal; do not add bookkeeping fields such as `needs_gloss_en` or `example_count`.
 - For authored gloss cleanup, fix incorrect or misleading `gloss_en` first, then align `gloss_fr` to the same sense.
 - Keep authored-gloss edits narrow: patch only entries that are clearly wrong or crossed, not all stylistic duplicates.
-- For the current full-gloss audit, use Qwen to flag suspicious rows and propose replacements, but keep `gloss.json` untouched until the flagged set is reviewed.
+- For the current full-gloss audit, use Qwen to flag suspicious rows and propose replacements, keep `gloss.json` untouched until the flagged set is reviewed, then merge all non-`reject_flag` reviewed rows back into authored gloss data.
 - Cover all of `data/source/authored/gloss.json`, not just the component subset.
 - Keep the Qwen audit outputs under `data/cache/gloss_translation/suspicious_gloss_audit/`.
 - Use `qwen-plus` as the default suspicious-gloss audit model, with thinking enabled.
@@ -53,7 +53,7 @@ Build the missing component-gloss queue from the final component set, prepare an
 
 ## Evaluation criteria
 
-- Existing authored `gloss_en` and `gloss_fr` values in `gloss.json` remain untouched.
+- Only reviewed non-`reject_flag` rows in `gloss.json` are updated; `reject_flag` rows remain untouched.
 - All missing component glosses are represented once in a single cache file.
 - Components with English gloss but missing French gloss remain identifiable for translation.
 - Components with no usable English gloss remain identifiable for manual authoring.
@@ -80,14 +80,11 @@ Build the missing component-gloss queue from the final component set, prepare an
 - The next audit pass is no longer based on comparing `gloss.json` back to `dictionary_char.jsonl`, because `gloss.json` was derived from that source; instead it uses `qwen_api.py` to flag suspicious rows across the full file and write a cache-side review report.
 - The suspicious-gloss audit now defaults to `qwen-plus` and calls Qwen with thinking enabled.
 - The suspicious-gloss audit now returns only flagged rows and classifies them by failure type instead of echoing okay rows.
-- The first manual-review approval unit is now the full `en_fr_mismatch` category, reviewed into `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_en_fr_mismatch.json` with current glosses, model proposals, reviewed candidates, and explicit keep/reject decisions.
-- The second manual-review approval unit is now the full `meta_variant_encyclopedic` category, reviewed into `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_meta_variant_encyclopedic.json` with current glosses, model proposals, reviewed candidates, and explicit keep/reject decisions.
-- The third manual-review approval unit is now the full `awkward_french` category, reviewed into `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_awkward_french.json` with current glosses, model proposals, reviewed candidates, and explicit keep/reject decisions.
-- The fourth manual-review approval unit is now the full `overpacked` category, reviewed into `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_overpacked.json` with current glosses, model proposals, reviewed candidates, and explicit keep/reject decisions.
-- The fifth manual-review approval unit is now the full `other` category, reviewed into `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_other.json` with current glosses, model proposals, reviewed candidates, and explicit keep/reject decisions.
-- The sixth manual-review approval unit is now the full `non_core_meaning` category, reviewed into `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_non_core_meaning.json` with the approved chunked bespoke rerun merged back into one final file. The final merged decision mix is `126` `accept_model`, `39` `revise_model`, and `11` `reject_flag`.
-- The next audit unit is now `wrong_sense`, processed in `100`-row batches. Each batch is seeded programmatically from the audit model, then manually reviewed, then manually tightened in a second pass before moving to the next batch.
-- The merged full-category `wrong_sense` review now lives in `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_wrong_sense.json` with exact source-key/order coverage across all `252` `wrong_sense` rows. The merged decision mix is `203` `accept_model`, `48` `revise_model`, and `1` `reject_flag`.
+- All reviewed suspicious-gloss categories are now merged into `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_all.json`.
+- The retained merged review artifact currently has `647` rows: `472` `accept_model`, `135` `revise_model`, and `40` `reject_flag`.
+- The per-category `manual_review_*.json` files have been deleted after the merge, and `607` non-`reject_flag` reviewed rows are now applied in `data/source/authored/gloss.json`.
+- A strict anti-surname cleanup pass now prefers supported non-surname lexical glosses over surname/proper-name labels, using `dictionary_words.jsonl` first, then `dictionary_makemeahanzi.txt`, then `dictionary_char.jsonl`, with manual learner-facing tightening only after source review.
+- Two rows remain intentionally unchanged for now because the current local sources do not provide a solid non-surname lexical fallback: `邓` and `邵`.
 
 ## Pending output groups
 
@@ -201,6 +198,15 @@ Build the missing component-gloss queue from the final component set, prepare an
 - Started `wrong_sense` batch review with the user-requested hybrid workflow: programmatic seed, first manual pass, then second manual pass. Completed batch 1 into `manual_review_wrong_sense_batch01.json` with exact source-key/order preservation against the first 100 `wrong_sense` rows.
 - Merged the three approved `wrong_sense` batch files into `manual_review_wrong_sense.json` and validated exact full-category coverage/order against all `252` `wrong_sense` rows in `suspicious_glosses.json`.
 - Deleted the now-redundant `manual_review_wrong_sense_batch01.json` through `batch03.json` files after the merged `manual_review_wrong_sense.json` was validated.
+- Applied a targeted second-pass correction set directly to the review JSONs only, without touching `gloss.json`: kept `丷` as the user-preferred descriptive exception `ears-out / oreilles vers l'extérieur`, and changed `颂 -> praise / célébrer`, `授 -> bestow / attribuer`, `故 -> reason / raison`, `勒 -> rein in / brider`, `酷 -> cruel / cruel`, and `糟 -> dregs / lies`.
+- Corrected the restored `𬜯` row only in `manual_review_meta_variant_encyclopedic.json`, changing the reviewed proposal from `grass / herbe` to `kind of grass / sorte d'herbe` while leaving `gloss.json` unchanged.
+- Applied a second-pass correction set to five `wrong_sense` review rows only, without touching `gloss.json`: `丬 -> split wood / bois fendu`, `陌 -> unfamiliar / inconnu`, `冂 -> wide / large`, `芝` back to `sesame / sésame` as `reject_flag`, and `哗 -> crash / fracas`.
+- Applied a second-pass correction set to selected `non_core_meaning` review rows only, without touching `gloss.json`: restored `元 -> first / premier`, `营 -> camp / camp`, `叚 -> false / faux`, and `仆 -> fall forward / tomber en avant`; shifted `罗 -> gauze / gaze`, `郁 -> melancholy / mélancolique`, `敖 -> roam / errer`, `跋 -> afterword / postface`, and `纪 -> era / ère`.
+- Merged the seven retained per-category review files into `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_all.json`, then deleted the per-category `manual_review_*.json` files.
+- Applied the merged manual-review decisions into `data/source/authored/gloss.json`; after the later anti-surname corrections, the retained artifact now stands at `607` non-`reject_flag` rows and `40` `reject_flag` rows.
+- Applied a final preference correction for `它`, setting the French gloss to `ça` in both `manual_review_all.json` and `gloss.json`.
+- Applied a strict anti-surname cleanup to `gloss.json`, replacing surname/proper-name glosses with non-surname lexical glosses for `阿 吕 氐 宓 㔾 卢 薛 吳 娄 禹 范 刘 黎 冯 翟 蔡 邱 谭 吴 曹 袁 俞 郑 赵 蒋 彭 潘 廖`, and left `邓 / 邵` unchanged because the local source set still lacks a solid lexical fallback.
+- Realigned the contradictory rows in `manual_review_all.json` for `㔾 吕 宓 卢 薛 氐 吳 禹 吴 曹 袁 郑 彭` so the retained audit artifact no longer points back to surname-only reviewed outcomes for those characters.
 
 ## Translation workflow
 
