@@ -1,9 +1,11 @@
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import json
 import random
 import sys
 from pathlib import Path
+from tqdm import tqdm
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 CACHE_DIR = ROOT_DIR / "data" / "cache" / "gloss_translation" / "suspicious_gloss_audit"
@@ -24,6 +26,7 @@ def main():
     parser.add_argument("--temperature", type=float, default=0.4, help="Sampling temperature for the audit.")
     parser.add_argument("--sample-size", type=int, default=None, help="Audit only a random sample of this many characters.")
     parser.add_argument("--sample-seed", type=int, default=None, help="Random seed used with --sample-size. If omitted, one is generated and recorded.")
+    parser.add_argument("--max-parallel", type=int, default=2, help="Number of batch requests to run concurrently.")
     parser.add_argument("--reset", action="store_true", help="Ignore any existing audit cache and restart from scratch.")
     args = parser.parse_args()
 
@@ -32,6 +35,7 @@ def main():
     glosses = json.loads(gloss_path.read_text(encoding="utf-8"))
     source_hash = hashlib.sha256(gloss_path.read_bytes()).hexdigest()
     available_chars = list(glosses)
+    if args.max_parallel <= 0: raise ValueError("--max-parallel must be positive.")
     if args.sample_size is not None and args.sample_size <= 0:
         raise ValueError("--sample-size must be positive.")
     if args.sample_size is not None and args.sample_size > len(available_chars):
@@ -59,7 +63,6 @@ def main():
         write_reports(state, ordered_chars)
         return
 
-    client = OpenAIAPI(model=args.model, logs_dir=CACHE_DIR / "llm_io", session_name="suspicious_gloss_audit")
     system_prompt = """You are auditing short learner-facing glosses for Chinese characters.
 
 Your task is to flag only the rows that clearly need manual review or correction as character-study glosses.
@@ -114,28 +117,50 @@ Rules:
 - For polyphonic characters, prefer not flagging unless the current gloss is clearly poor or clearly not the most useful standalone study gloss.
 - Do not add explanations outside the JSON."""
 
+    batches = []
     for start in range(0, len(pending_chars), args.batch_size):
         batch_chars = pending_chars[start:start + args.batch_size]
-        batch = {char: glosses[char] for char in batch_chars}
-        batch_number = start // args.batch_size + 1
-        print(f"Streaming batch {batch_number:02d} (items {start + 1}-{start + len(batch_chars)})...")
+        batches += [(start // args.batch_size + 1, batch_chars, {char: glosses[char] for char in batch_chars})]
+    print(f"Submitting {len(batches)} batches with max_parallel={args.max_parallel}.")
+
+    def run_batch(batch_number, batch_chars, batch):
+        client = OpenAIAPI(model=args.model, logs_dir=CACHE_DIR / "llm_io", session_name=f"suspicious_gloss_audit_b{batch_number:03d}")
         messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": json.dumps(batch, ensure_ascii=False)}]
-        result = client.chat_json_streamed(messages, temperature=args.temperature, thinking=True)
-        suspicious = result if isinstance(result, dict) else {}
-        for char, review in suspicious.items():
-            if char not in batch or not isinstance(review, dict):
-                continue
-            state["suspicious"][char] = {
-                "current_gloss_en": glosses[char]["gloss_en"],
-                "current_gloss_fr": glosses[char]["gloss_fr"],
-                "category": review.get("category", ""),
-                "reason": review.get("reason", ""),
-                "gloss_en": review.get("gloss_en", review.get("proposed_gloss_en", "")),
-                "gloss_fr": review.get("gloss_fr", review.get("proposed_gloss_fr", "")),
-            }
-        state["done_chars"] = sorted(done_chars | set(batch_chars), key=ordered_chars.index)
-        done_chars = set(state["done_chars"])
-        write_reports(state, ordered_chars)
+        result = client.chat_json_streamed(messages, temperature=args.temperature, thinking=True, include_usage=True, print_stream=False)
+        return batch_number, batch_chars, result if isinstance(result, dict) else {}, usage_to_dict(client.last_usage)
+
+    completed_batches = 0
+    total_prompt_tokens = 0
+    total_completion_tokens = 0
+    total_tokens = 0
+    with tqdm(total=len(ordered_chars), unit="char", desc="Gloss audit", dynamic_ncols=True) as progress:
+        progress.set_postfix(prompt_tok=0, completion_tok=0, total_tok=0, flagged=0)
+        with ThreadPoolExecutor(max_workers=args.max_parallel) as executor:
+            futures = {executor.submit(run_batch, batch_number, batch_chars, batch): (batch_number, batch_chars) for batch_number, batch_chars, batch in batches}
+            for future in as_completed(futures):
+                batch_number, batch_chars, suspicious, usage = future.result()
+                for char, review in suspicious.items():
+                    if char not in glosses or not isinstance(review, dict):
+                        continue
+                    state["suspicious"][char] = {
+                        "current_gloss_en": glosses[char]["gloss_en"],
+                        "current_gloss_fr": glosses[char]["gloss_fr"],
+                        "category": review.get("category", ""),
+                        "reason": review.get("reason", ""),
+                        "gloss_en": review.get("gloss_en", review.get("proposed_gloss_en", "")),
+                        "gloss_fr": review.get("gloss_fr", review.get("proposed_gloss_fr", "")),
+                    }
+                state["done_chars"] = sorted(done_chars | set(batch_chars), key=ordered_chars.index)
+                done_chars = set(state["done_chars"])
+                completed_batches += 1
+                total_prompt_tokens += usage.get("prompt_tokens", 0)
+                total_completion_tokens += usage.get("completion_tokens", 0)
+                total_tokens += usage.get("total_tokens", 0)
+                progress.update(len(batch_chars))
+                progress.set_postfix(prompt_tok=total_prompt_tokens, completion_tok=total_completion_tokens, total_tok=total_tokens, flagged=len(state["suspicious"]))
+                tqdm.write(f"Completed batch {batch_number:02d} ({completed_batches}/{len(batches)}); chars done: {len(done_chars)}/{len(ordered_chars)}; flagged: {len(state['suspicious'])}; tokens in/out/total: {total_prompt_tokens}/{total_completion_tokens}/{total_tokens}")
+                write_reports(state, ordered_chars)
+    print(f"Final tokens in/out/total: {total_prompt_tokens}/{total_completion_tokens}/{total_tokens}")
 
 
 def write_reports(state, ordered_chars):
@@ -166,6 +191,17 @@ def write_reports(state, ordered_chars):
     temporary_state_path.replace(STATE_PATH)
     temporary_suspicious_path.replace(SUSPICIOUS_PATH)
     temporary_summary_path.replace(SUMMARY_PATH)
+
+
+def usage_to_dict(usage):
+    if usage is None: return {}
+    if isinstance(usage, dict): return usage
+    if hasattr(usage, "model_dump"): return usage.model_dump()
+    result = {}
+    for key in ["prompt_tokens", "completion_tokens", "total_tokens"]:
+        value = getattr(usage, key, None)
+        if isinstance(value, int): result[key] = value
+    return result
 
 
 if __name__ == "__main__":
