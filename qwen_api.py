@@ -32,6 +32,7 @@ class OpenAIAPI:
         self.session_name = session_name
         self._io_counter = 0
         self._io_lock = threading.Lock()
+        self.last_usage = None
 
     def _next_io_filename(self, kind, ext="json"):
         with self._io_lock:
@@ -56,6 +57,7 @@ class OpenAIAPI:
         return path, open(path, "w", encoding="utf-8")
 
     def chat(self, messages: List[Dict[str, str]], temperature=1.0, top_p=0.9, max_tokens=None, response_format=None, stream=False, enable_thinking=False, include_usage=False, **kwargs) -> Union[str, Iterator[str]]:
+        self.last_usage = None
         params = {"model": self.model, "messages": messages, "temperature": temperature, "top_p": top_p, "stream": stream, **kwargs}
         if max_tokens is not None: params["max_tokens"] = max_tokens
         if response_format is not None: params["response_format"] = response_format
@@ -73,6 +75,7 @@ class OpenAIAPI:
                     for chunk in response:
                         if not chunk.choices:
                             if include_usage and getattr(chunk, "usage", None):
+                                self.last_usage = chunk.usage
                                 try: fh.write(f"\n[usage] {chunk.usage}\n"); fh.flush()
                                 except Exception: pass
                             continue
@@ -86,6 +89,7 @@ class OpenAIAPI:
                     except Exception: pass
             return _generator()
         content = response.choices[0].message.content
+        self.last_usage = getattr(response, "usage", None)
         try: self._log_output(content if isinstance(content, str) else str(content))
         except Exception: pass
         return content
@@ -102,9 +106,12 @@ class OpenAIAPI:
         for chunk in self.chat(messages, stream=True, **kwargs):
             yield chunk
 
-    def chat_json_streamed(self, messages: List[Dict[str, str]], thinking=False, include_usage=False, **kwargs) -> Dict[str, Any]:
+    def chat_json_streamed(self, messages: List[Dict[str, str]], thinking=False, include_usage=False, print_stream=True, **kwargs) -> Dict[str, Any]:
+        self.last_usage = None
         if thinking:
-            response = self.client.chat.completions.create(model=self.model, messages=messages, temperature=kwargs.pop("temperature", 1.0), top_p=kwargs.pop("top_p", 0.9), stream=True, extra_body={"enable_thinking": True}, **({"stream_options": {"include_usage": True}} if include_usage else {}), **kwargs)
+            temperature = kwargs.pop("temperature", 1.0)
+            top_p = kwargs.pop("top_p", 0.9)
+            response = self.client.chat.completions.create(model=self.model, messages=messages, temperature=temperature, top_p=top_p, stream=True, extra_body={"enable_thinking": True}, **({"stream_options": {"include_usage": True}} if include_usage else {}), **kwargs)
             try:
                 self._log_input({"model": self.model, "messages": messages, "extra_body": {"enable_thinking": True}, **({"stream_options": {"include_usage": True}} if include_usage else {}), "stream": True})
             except Exception:
@@ -118,34 +125,37 @@ class OpenAIAPI:
                 for chunk in response:
                     if not chunk.choices:
                         if include_usage and getattr(chunk, "usage", None):
-                            print("\n\033[90m\nUsage :"); print(chunk.usage); print("\033[0m")
+                            self.last_usage = chunk.usage
+                            if print_stream: print("\n\033[90m\nUsage :"); print(chunk.usage); print("\033[0m")
                         continue
                     delta = chunk.choices[0].delta
                     if hasattr(delta, "reasoning_content") and delta.reasoning_content is not None:
                         if not is_answering and not has_thinking:
-                            print("\033[94m\n" + "=" * 20 + " Reasoning :" + "\033[0m")
+                            if print_stream: print("\033[94m\n" + "=" * 20 + " Reasoning :" + "\033[0m")
                             has_thinking = True
-                        if not is_answering:
-                            print(delta.reasoning_content, end="", flush=True)
+                        if print_stream and not is_answering: print(delta.reasoning_content, end="", flush=True)
                         reasoning_content += delta.reasoning_content
                         try: fh.write(delta.reasoning_content); fh.flush()
                         except Exception: pass
                     if hasattr(delta, "content") and delta.content:
                         if not is_answering:
-                            print("\n\n\n\033[92m\n" + "=" * 20 + " Response :" + "\033[0m")
+                            if print_stream: print("\n\n\n\033[92m\n" + "=" * 20 + " Response :" + "\033[0m")
                             is_answering = True
-                        print(delta.content, end="", flush=True)
+                        if print_stream: print(delta.content, end="", flush=True)
                         answer_content += delta.content
                         try: fh.write(delta.content); fh.flush()
                         except Exception: pass
             finally:
                 try: fh.write("\n"); fh.close()
                 except Exception: pass
-            print()
+            if print_stream: print()
+            if not answer_content.strip():
+                if print_stream: print("\033[93m\nNo final JSON content after thinking stream; retrying once without thinking.\033[0m")
+                return self.chat_json_streamed(messages, thinking=False, include_usage=include_usage, print_stream=print_stream, temperature=temperature, top_p=top_p, **kwargs)
             return json.loads(answer_content)
         accumulated = []
         for chunk in self.chat_json(messages, stream=True, include_usage=include_usage, **kwargs):
             accumulated += [chunk]
-            print(chunk, end="", flush=True)
-        print()
+            if print_stream: print(chunk, end="", flush=True)
+        if print_stream: print()
         return json.loads("".join(accumulated))
