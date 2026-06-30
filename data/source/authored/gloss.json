@@ -2224,8 +2224,8 @@
         "gloss_fr": "particule finale emphatique"
     },
     "阿": {
-        "gloss_en": "name prefix",
-        "gloss_fr": "préfixe de nom"
+        "gloss_en": "a- prefix",
+        "gloss_fr": "préfixe a-"
     },
     "李": {
         "gloss_en": "plum",
@@ -2460,8 +2460,8 @@
         "gloss_fr": "camp"
     },
     "吕": {
-        "gloss_en": "surname Lü",
-        "gloss_fr": "nom de famille Lü"
+        "gloss_en": "pitchpipe",
+        "gloss_fr": "diapason"
     },
     "星": {
         "gloss_en": "a star",
@@ -2492,8 +2492,8 @@
         "gloss_fr": "fond"
     },
     "氐": {
-        "gloss_en": "surname Di",
-        "gloss_fr": "nom de famille Di"
+        "gloss_en": "bottom",
+        "gloss_fr": "base"
     },
     "氏": {
         "gloss_en": "clan",
@@ -2660,8 +2660,8 @@
         "gloss_fr": "secret"
     },
     "宓": {
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "quiet",
+        "gloss_fr": "calme"
     },
     "低": {
         "gloss_en": "low",
@@ -2828,8 +2828,8 @@
         "gloss_fr": "commencer, établir"
     },
     "㔾": {
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "seal",
+        "gloss_fr": "sceau"
     },
     "仓": {
         "gloss_en": "granary",
@@ -6520,8 +6520,8 @@
         "gloss_fr": "douleurs"
     },
     "卢": {
-        "gloss_en": "surname Lu",
-        "gloss_fr": "nom de famille Lu"
+        "gloss_en": "black",
+        "gloss_fr": "noir"
     },
     "仗": {
         "gloss_en": "weaponry, war",
@@ -7248,8 +7248,8 @@
         "gloss_fr": "lever"
     },
     "薛": {
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "marsh grass",
+        "gloss_fr": "herbe des marais"
     },
     "皱": {
         "gloss_en": "wrinkles",
@@ -10340,8 +10340,8 @@
         "gloss_fr": "pencher la tête"
     },
     "吳": {
-        "gloss_en": "surname Wu",
-        "gloss_fr": "nom de famille Wu"
+        "gloss_en": "Wu state",
+        "gloss_fr": "État de Wu"
     },
     "栓": {
         "gloss_en": "wooden peg",
@@ -10673,8 +10673,8 @@
     },
     "娄": {
         "char": "娄",
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "constellation",
+        "gloss_fr": "constellation"
     },
     "允": {
         "char": "允",
@@ -10813,8 +10813,8 @@
     },
     "禹": {
         "char": "禹",
-        "gloss_en": "proper name",
-        "gloss_fr": "nom propre"
+        "gloss_en": "legendary founder",
+        "gloss_fr": "fondateur légendaire"
     },
     "刚": {
         "char": "刚",
@@ -10833,8 +10833,8 @@
     },
     "范": {
         "char": "范",
-        "gloss_en": "surname Fan",
-        "gloss_fr": "nom de famille Fan"
+        "gloss_en": "pattern",
+        "gloss_fr": "motif"
     },
     "挥": {
         "char": "挥",
@@ -10848,8 +10848,8 @@
     },
     "刘": {
         "char": "刘",
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "kill",
+        "gloss_fr": "tuer"
     },
     "养": {
         "char": "养",
@@ -11133,8 +11133,8 @@
     },
     "黎": {
         "char": "黎",
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "dark",
+        "gloss_fr": "sombre"
     },
     "慈": {
         "char": "慈",
@@ -11238,8 +11238,8 @@
     },
     "冯": {
         "char": "冯",
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "gallop",
+        "gloss_fr": "galoper"
     },
     "敲": {
         "char": "敲",
@@ -11298,8 +11298,8 @@
     },
     "翟": {
         "char": "翟",
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "pheasant",
+        "gloss_fr": "faisan"
     },
     "伐": {
         "char": "伐",
@@ -11433,8 +11433,8 @@
     },
     "蔡": {
         "char": "蔡",
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "tortoise",
+        "gloss_fr": "tortue"
     },
     "剪": {
         "char": "剪",
@@ -11563,8 +11563,8 @@
     },
     "邱": {
         "char": "邱",
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "mound",
+        "gloss_fr": "tertre"
     },
     "趟": {
         "char": "趟",
@@ -11848,8 +11848,8 @@
     },
     "谭": {
         "char": "谭",
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "talk",
+        "gloss_fr": "parler"
     },
     "盼": {
         "char": "盼",
@@ -12093,8 +12093,8 @@
     },
     "吴": {
         "char": "吴",
-        "gloss_en": "surname Wu",
-        "gloss_fr": "nom de famille Wu"
+        "gloss_en": "Wu state",
+        "gloss_fr": "État de Wu"
     },
     "封": {
         "char": "封",
@@ -12123,8 +12123,8 @@
     },
     "曹": {
         "char": "曹",
-        "gloss_en": "Cao (surname)",
-        "gloss_fr": "Cao (nom de famille)"
+        "gloss_en": "generation",
+        "gloss_fr": "génération"
     },
     "珠": {
         "char": "珠",
@@ -12408,8 +12408,8 @@
     },
     "袁": {
         "char": "袁",
-        "gloss_en": "surname Yuan",
-        "gloss_fr": "nom de famille Yuan"
+        "gloss_en": "robe",
+        "gloss_fr": "robe"
     },
     "呙": {
         "char": "呙",
@@ -12868,8 +12868,8 @@
         "gloss_fr": "perdre"
     },
     "俞": {
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "approve",
+        "gloss_fr": "approuver"
     },
     "材": {
         "gloss_en": "material",
@@ -12932,20 +12932,20 @@
         "gloss_fr": "pur"
     },
     "郑": {
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "Zheng state",
+        "gloss_fr": "État de Zheng"
     },
     "狂": {
         "gloss_en": "insane, mad",
         "gloss_fr": "fou, insensé"
     },
     "赵": {
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "surpass",
+        "gloss_fr": "dépasser"
     },
     "蒋": {
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "water grass",
+        "gloss_fr": "herbe aquatique"
     },
     "耶": {
         "gloss_en": "ye (sound)",
@@ -13088,8 +13088,8 @@
         "gloss_fr": "sueur"
     },
     "彭": {
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "ancient state",
+        "gloss_fr": "ancien État"
     },
     "骗": {
         "gloss_en": "swindle",
@@ -13372,8 +13372,8 @@
         "gloss_fr": "fuir"
     },
     "潘": {
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "rice-rinse water",
+        "gloss_fr": "eau de rinçage du riz"
     },
     "拆": {
         "gloss_en": "to break up",
@@ -13656,8 +13656,8 @@
         "gloss_fr": "fracas de pierres"
     },
     "廖": {
-        "gloss_en": "surname",
-        "gloss_fr": "nom de famille"
+        "gloss_en": "empty",
+        "gloss_fr": "vide"
     },
     "俭": {
         "gloss_en": "frugal",
