@@ -80,6 +80,14 @@ Build the missing component-gloss queue from the final component set, prepare an
 - The next audit pass is no longer based on comparing `gloss.json` back to `dictionary_char.jsonl`, because `gloss.json` was derived from that source; instead it uses `qwen_api.py` to flag suspicious rows across the full file and write a cache-side review report.
 - The suspicious-gloss audit now defaults to `qwen-plus` and calls Qwen with thinking enabled.
 - The suspicious-gloss audit now returns only flagged rows and classifies them by failure type instead of echoing okay rows.
+- The first manual-review approval unit is now the full `en_fr_mismatch` category, reviewed into `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_en_fr_mismatch.json` with current glosses, model proposals, reviewed candidates, and explicit keep/reject decisions.
+- The second manual-review approval unit is now the full `meta_variant_encyclopedic` category, reviewed into `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_meta_variant_encyclopedic.json` with current glosses, model proposals, reviewed candidates, and explicit keep/reject decisions.
+- The third manual-review approval unit is now the full `awkward_french` category, reviewed into `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_awkward_french.json` with current glosses, model proposals, reviewed candidates, and explicit keep/reject decisions.
+- The fourth manual-review approval unit is now the full `overpacked` category, reviewed into `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_overpacked.json` with current glosses, model proposals, reviewed candidates, and explicit keep/reject decisions.
+- The fifth manual-review approval unit is now the full `other` category, reviewed into `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_other.json` with current glosses, model proposals, reviewed candidates, and explicit keep/reject decisions.
+- The sixth manual-review approval unit is now the full `non_core_meaning` category, reviewed into `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_non_core_meaning.json` with the approved chunked bespoke rerun merged back into one final file. The final merged decision mix is `126` `accept_model`, `39` `revise_model`, and `11` `reject_flag`.
+- The next audit unit is now `wrong_sense`, processed in `100`-row batches. Each batch is seeded programmatically from the audit model, then manually reviewed, then manually tightened in a second pass before moving to the next batch.
+- The merged full-category `wrong_sense` review now lives in `data/cache/gloss_translation/suspicious_gloss_audit/manual_review_wrong_sense.json` with exact source-key/order coverage across all `252` `wrong_sense` rows. The merged decision mix is `203` `accept_model`, `48` `revise_model`, and `1` `reject_flag`.
 
 ## Pending output groups
 
@@ -183,6 +191,16 @@ Build the missing component-gloss queue from the final component set, prepare an
 - Added `--max-parallel` to `tools/gloss_translation/suspicious_glosses.py` and switched the audit loop to small in-process batch parallelism with main-thread-only cache writes.
 - Added `print_stream=False` support in `qwen_api.py` so Qwen reasoning/output can be suppressed while keeping batch-level progress visible.
 - Added `tqdm` character-level progress plus cumulative prompt/completion/total token reporting for the suspicious-gloss audit.
+- Reviewed the `en_fr_mismatch` category manually into `manual_review_en_fr_mismatch.json`, preserving both the previous gloss pair and the model proposal before selecting a reviewed candidate or rejecting the flag.
+- Reviewed the `meta_variant_encyclopedic` category manually into `manual_review_meta_variant_encyclopedic.json`, preserving both the previous gloss pair and the model proposal before selecting a reviewed candidate or rejecting the flag.
+- Reviewed the `awkward_french` category manually into `manual_review_awkward_french.json`, preserving both the previous gloss pair and the model proposal before selecting a reviewed candidate or rejecting the flag.
+- Reviewed the `overpacked` category manually into `manual_review_overpacked.json`, preserving both the previous gloss pair and the model proposal before selecting a reviewed candidate or rejecting the flag.
+- Reviewed the `other` category manually into `manual_review_other.json`, preserving both the previous gloss pair and the model proposal before selecting a reviewed candidate or rejecting the flag.
+- Reviewed the `non_core_meaning` category manually into `manual_review_non_core_meaning.json`, preserving both the previous gloss pair and the model proposal before selecting a reviewed candidate or rejecting the flag.
+- Finished the stricter bespoke rerun of `non_core_meaning`, merged it back into the final `manual_review_non_core_meaning.json`, and then deleted the temporary chunk files once the merged file became the retained artifact.
+- Started `wrong_sense` batch review with the user-requested hybrid workflow: programmatic seed, first manual pass, then second manual pass. Completed batch 1 into `manual_review_wrong_sense_batch01.json` with exact source-key/order preservation against the first 100 `wrong_sense` rows.
+- Merged the three approved `wrong_sense` batch files into `manual_review_wrong_sense.json` and validated exact full-category coverage/order against all `252` `wrong_sense` rows in `suspicious_glosses.json`.
+- Deleted the now-redundant `manual_review_wrong_sense_batch01.json` through `batch03.json` files after the merged `manual_review_wrong_sense.json` was validated.
 
 ## Translation workflow
 
