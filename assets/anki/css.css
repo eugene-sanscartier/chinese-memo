@@ -18,15 +18,19 @@
     font-family: 'HanaMinA', 'HanaMinB';
 }
 
+body {
+    font-family: 'Noto Sans', sans-serif;
+}
+
 #card-body {
-    font: 17px/1.85em 'Avenir Next'; /* tightened line-height */
-    text-align: justify;
+    font: 17px/31px;
+    text-align: left;
     margin-top: 50px;
     margin-bottom: 60px;
 }
 
 .acentersmall {
-    line-height: 1.25em; /* further reduce spacing for compact blocks */
+    line-height: 21px;
 }
 
 .subdetail-marker {
@@ -39,7 +43,7 @@
 }
 
 .header {
-    font: bold 17px/1.5em;
+    font: bold 17px/26px;
     padding-left: 0.5em;
 }
 
@@ -187,4 +191,81 @@ tt {
     max-width: 600px; /* limit width for readability */
     box-sizing: border-box;
     margin: 4px 0;
+}
+
+.question-side {
+    position: relative;
+    min-height: calc(100vh - 120px);
+    padding-top: 6px;
+}
+
+.answer-side {
+    padding-top: 6px;
+}
+
+.answer-character-block {
+    display: block;
+}
+
+.card-study-char,
+.question-char {
+    font-family: 'LXGW WenKai GB Lite Light';
+    font-size: 45px;
+    line-height: normal;
+    text-align: center;
+    margin-top: 0;
+}
+
+.question-char {
+    line-height: 1;
+}
+
+.question-components {
+    margin-top: 0;
+    text-align: left;
+    margin-left: 30%;
+}
+
+.question-component-row {
+    margin-top: 4px;
+    font-size: 17px;
+    line-height: 23px;
+    white-space: normal;
+    display: flex;
+    align-items: baseline;
+    gap: 0.4em;
+}
+
+.question-component-char {
+    font-family: 'LXGW WenKai GB Lite Light', 'HanaMinA', 'HanaMinB';
+    font-size: 21px;
+}
+
+.question-component-gloss {
+    font-size: 14px;
+}
+
+.question-footer-zone {
+    position: absolute;
+    bottom: 5%;
+    left: 0;
+    right: 0;
+    text-align: center;
+}
+
+.question-footer-gloss {
+    font-size: 17px;
+    color: #777777;
+    text-align: center;
+}
+
+.replay-button {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    line-height: 1;
+}
+.replay-button svg {
+    width: 1.3em;
+    height: 1.3em;
 }

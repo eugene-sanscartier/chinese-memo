@@ -26,14 +26,17 @@ DATA_DIR = ROOT_DIR / "data"
 AUTHORED_DIR = DATA_DIR / "source" / "authored"
 REFERENCE_DIR = DATA_DIR / "source" / "reference"
 MEMODEVICE_DIR = DATA_DIR / "derived" / "memodevice"
+COMPONENTS_DIR = DATA_DIR / "derived" / "components"
 ANKI_ASSETS_DIR = ROOT_DIR / "assets" / "anki"
 LOCI_ASSETS_DIR = ROOT_DIR / "assets" / "loci"
 BUILD_DIR = ROOT_DIR / "build"
 AUDIO_DIR = ANKI_ASSETS_DIR / "audio"
 
+
 def pinyin_audio_filename(pinyin_data):
     final = pinyin_data["final"].replace("u", "ü") if pinyin_data["u_is_v"] else pinyin_data["final"]
     return unicodedata.normalize("NFD", f'{pinyin_data["initial"]}{final}{pinyin_data["tone"]}.mp3')
+
 
 with open(ANKI_ASSETS_DIR / "css.css", "r", encoding="utf-8") as file_obj:
     CSS = file_obj.read()
@@ -46,6 +49,12 @@ with open(ANKI_ASSETS_DIR / "backcloze_template.html", "r") as file_obj:
 
 with open(AUTHORED_DIR / "memo.json", "r", encoding="utf-8") as file_obj:
     memo_data = json.load(file_obj)
+
+with open(AUTHORED_DIR / "gloss.json", "r", encoding="utf-8") as file_obj:
+    gloss_list = json.load(file_obj)
+
+with open(COMPONENTS_DIR / "components.json", "r", encoding="utf-8") as file_obj:
+    components_map = json.load(file_obj)
 
 
 def generate_character_html(entry, memo_data):
@@ -90,9 +99,11 @@ def generate_character_html(entry, memo_data):
     gloss_html += f'<div style="margin-top:2px;text-align:left;margin-left:5%;"><strong>━</strong> {gloss_fr} [{gloss}]</div>'
 
     # Build character display
-    char_html = f'[sound:{pinyin_audio_filename(pinyin_data)}]'
-    char_html += f'<div style="font-family:\'LXGW WenKai GB Lite Light\';font-size:45px;line-height:normal;text-align:center;margin-top:25px;">{char}</div>'
+    char_html = ""
+    char_html += f'<div class="card-study-header">'
+    char_html += f'<div class="card-study-char">{char}</div>'
     char_html += f'<div class="acentersmall" style="text-align:center;"><strong>P</strong>: {entry["position"]} / <strong>R</strong>: {entry["rank"]} / <strong>C</strong>: {float(entry["coverage"]):.2f}%</div><br>'
+    char_html += f'</div>'
 
     # Build detailed pinyin breakdown
     pinyin_initial = pinyin_data["initial"]
@@ -100,7 +111,7 @@ def generate_character_html(entry, memo_data):
     pinyin_tone = pinyin_data["tone"]
     u_is_v = pinyin_data["u_is_v"]
 
-    pinyin_detailed = '<div class="acentersmall" style="text-align:left;"><strong>Pinyin:</strong><br>'
+    pinyin_detailed = f'<div class="acentersmall" style="text-align:left;"><strong>Pinyin [sound:{pinyin_audio_filename(pinyin_data)}]:</strong><br>'
     pinyin_detailed += f'<div style="margin-top:2px;text-align:left;margin-left:5%;"><strong>━</strong> {pinyin_str}<br></div>'
 
     if pinyin_initial != "":
@@ -119,7 +130,9 @@ def generate_character_html(entry, memo_data):
     pinyin_detailed += "</div>"
 
     # Combine all HTML
-    answer_html = char_html
+    answer_html = '<div class="answer-character-block">'
+    answer_html += char_html
+    # answer_html += f'[sound:{pinyin_audio_filename(pinyin_data)}]'
     answer_html += pinyin_detailed
     answer_html += gloss_html
     answer_html += hint_html
@@ -219,12 +232,26 @@ def build_standard_note(entry, memo_data, next_entry=None):
         next_html += '</div></div><br>'
         answer_html += next_html
 
-    # Format question with the large character and French gloss
-    char_display = f'<div style="font-family:\'LXGW WenKai GB Lite Light\';font-size:45px;line-height:normal;text-align:center;margin-top:25px;">{char}</div><div class="acentersmall" style="text-align:center;">({entry["gloss_fr"]})</div>'
-    question_html = char_display
+    # Format question with the large character, final curated components, and low-emphasis gloss footer
+    question_components = components_map.get(char, [char])
+    components_html = ""
+    for component_char in question_components:
+        component_gloss_fr = html.escape(gloss_list.get(component_char, {}).get("gloss_fr", ""))
+        components_html += f'<div class="question-component-row"><strong>━</strong> <span class="decomp-char question-component-char">{html.escape(component_char)}</span> <span class="question-component-gloss">({component_gloss_fr})</span></div>'
+    question_html = ""
+    question_html += f'<div class="question-side">'
+    question_html += f'<div class="question-main card-study-header">'
+    question_html += f'<div class="question-char">{html.escape(char)}</div>'
+    question_html += f'<div class="question-components acentersmall">{components_html}</div>'
+    question_html += f'</div>'
+    question_html += f'<div class="question-footer-zone">'
+    question_html += f'<div class="question-footer-gloss acentersmall">({html.escape(entry["gloss_fr"])})</div>'
+    question_html += f'</div>'
+    question_html += f'</div>'
 
     # Add image to bottom of answer
     answer_html += loci_html
+    answer_html = f'<div class="answer-side">{answer_html}</div>'
 
     model = genanki.Model(20594999998, "Standard-Model-Device", fields=[{
         "name": "Character"
@@ -234,7 +261,7 @@ def build_standard_note(entry, memo_data, next_entry=None):
         {
             "name": "Card 1",
             "qfmt": "<div id='card-body'>{{Character}}</div>",
-            "afmt": "{{FrontSide}}<hr id=answer>{{Answer}}"
+            "afmt": "<div id='card-body'>{{Answer}}</div>"
         },
     ], css=CSS)
 
